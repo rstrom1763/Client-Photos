@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/disintegration/imaging"
+	"github.com/gin-gonic/gin"
 )
 
 var wg sync.WaitGroup //Create the waitgroup object
@@ -190,6 +192,18 @@ func thumbnailDir(dir string, height int, width int, quality int) {
 }
 
 func main() {
+	port := ":8081"              //Port to listen on
+	gin.SetMode(gin.ReleaseMode) //Turn off debugging mode
+	r := gin.Default()           //Initialize Gin
+
+	//Route for testing functionality
+	r.GET("/ping", func(c *gin.Context) {
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "pong",
+		})
+
+	})
 
 	region := "us-east-2" //AWS region to be used
 	bucket := "ryans-test-bucket423"
@@ -211,5 +225,13 @@ func main() {
 	objects := getObjects(client, region, bucket, prefix, maxkeys)
 	urls := createUrls(client, bucket, objects, minutes)
 	os.WriteFile("./test2.html", []byte(createHTML(urls)), 0644)
+
+	r.StaticFile("/test.css", "test.css")
+	r.GET("/", func(c *gin.Context) {
+		html := createHTML(urls)
+		c.Data(http.StatusOK, "text/html; charaset-utf-8", []byte(html))
+	})
+	r.Run(port)                                 //Start running the Gin server
+	fmt.Printf("Listening on port %v...", port) //Notifies that server is running on X port
 
 }
