@@ -62,27 +62,6 @@ func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) []st
 	return final
 }
 
-func createHTML2(keys []string) string {
-
-	var final string
-
-	final += `<!doctype html>
-	<html lang="en">
-	
-	<head><link rel="stylesheet" href="test.css"><style type="text/css"></style></head><br><br><br><br><br><br><br><br><br><br>
-	
-	<body style="background-color:rgb(168, 168, 168);">
-		<div id="gallery">
-	`
-
-	for _, key := range keys {
-		final += fmt.Sprintf("<img src=\"%v\" class=\"thumbnail\">\n", key)
-	}
-
-	final += "</div></body></html>"
-	return final
-}
-
 func createHTML(keys []string) string {
 
 	var final string
@@ -212,7 +191,7 @@ func main() {
 	prefix := "image_host/"
 	//key := "image_host/2D3A4246.jpg"
 	var minutes int64 = 20
-	var maxkeys int64 = 5000
+	var maxkeys int64 = 1000
 
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String(region)},
