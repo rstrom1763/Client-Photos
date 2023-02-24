@@ -18,6 +18,10 @@
     /* to match column gap */
 }
 
+body {
+    background-color: #f8f2e6;
+}
+
 @media (max-width: 1200px) {
     #gallery {
         -moz-column-count: 4;
