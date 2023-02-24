@@ -224,12 +224,10 @@ func main() {
 	// Create S3 service client
 	client := s3.New(sess)
 
-	objects := getObjects(client, region, bucket, prefix, maxkeys)
-	urls := createUrls(client, bucket, objects, minutes)
-	os.WriteFile("./test2.html", []byte(createHTML(urls)), 0644)
-
 	r.StaticFile("/test.css", "test.css")
 	r.GET("/", func(c *gin.Context) {
+		objects := getObjects(client, region, bucket, prefix, maxkeys)
+		urls := createUrls(client, bucket, objects, minutes)
 		html := createHTML(urls)
 		c.Data(http.StatusOK, "text/html; charaset-utf-8", []byte(html))
 	})
