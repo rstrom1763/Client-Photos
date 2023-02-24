@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	nocache "github.com/alexander-melentyev/gin-nocache"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -195,6 +196,7 @@ func main() {
 	port := ":8081"              //Port to listen on
 	gin.SetMode(gin.ReleaseMode) //Turn off debugging mode
 	r := gin.Default()           //Initialize Gin
+	r.Use(nocache.NoCache())
 
 	//Route for testing functionality
 	r.GET("/ping", func(c *gin.Context) {
@@ -231,7 +233,7 @@ func main() {
 		html := createHTML(urls)
 		c.Data(http.StatusOK, "text/html; charaset-utf-8", []byte(html))
 	})
-	r.Run(port)                                 //Start running the Gin server
-	fmt.Printf("Listening on port %v...", port) //Notifies that server is running on X port
 
+	fmt.Printf("Listening on port %v...", port) //Notifies that server is running on X port
+	r.Run(port)                                 //Start running the Gin server
 }
