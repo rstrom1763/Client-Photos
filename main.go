@@ -102,7 +102,7 @@ func createHTML(keys []string) string {
 	`
 
 	for _, key := range keys {
-		final += fmt.Sprintf("<img src=\"%v\">\n", key)
+		final += fmt.Sprintf("<a href=\"%v\" target=\"_blank\"><img src=\"%v\"></a>\n", key, key)
 	}
 
 	final += `</div>
@@ -190,7 +190,6 @@ func thumbnailDir(dir string, height int, width int, quality int) {
 }
 
 func main() {
-	thumbnailDir("Z:/san_antonio_zoo/small_final", 1920, 0, 80)
 
 	region := "us-east-2" //AWS region to be used
 	bucket := "ryans-test-bucket423"
