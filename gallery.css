@@ -23,14 +23,20 @@
 }
 
 #gallery img:hover{
-    transition: transform .2s;
+    transition: transform .4s;
     z-index: 9999;
     position:relative;
     z-index: 200;
     transform: scale(1.38);
 
-    transition: transform .2s;
-    /* Animation */
+}
+
+#gallery img:not(:hover){
+    transition: transform .4s;
+    z-index: 1;
+    position:relative;
+    transform: scale(1);
+
 }
 
 body {
