@@ -19,6 +19,7 @@
     height: auto !important;
     margin-bottom: 5px;
     filter: drop-shadow(2px 2px 2px rgb(0, 0, 0));
+    border: 1px solid #f8f2e6;
     /* to match column gap */
 }
 
@@ -43,18 +44,18 @@ body {
     background-color: #f8f2e6;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1400px) {
     #gallery {
-        -moz-column-count: 4;
-        -webkit-column-count: 4;
-        column-count: 4;
+        -moz-column-count: 3;
+        -webkit-column-count: 3;
+        column-count: 3;
     }
 }
 
 @media (max-width: 1000px) {
     #gallery {
-        -moz-column-count: 3;
-        -webkit-column-count: 3;
+        -moz-column-count: 2;
+        -webkit-column-count: 2;
         column-count: 2;
     }
 }
