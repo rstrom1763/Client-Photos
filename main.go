@@ -224,7 +224,7 @@ func thumbnailDir(dir string, height int, width int, quality int, maxroutines in
 			if errors.Is(err, os.ErrNotExist) {
 
 				// Only execute on files that are jpg
-				if strings.ToLower(filepath.Ext(photoPath)) == ".jpg" {
+				if strings.ToLower(filepath.Ext(photoPath)) == ".jpg" || strings.ToLower(filepath.Ext(photoPath)) == ".jpeg" {
 
 					wg.Add(1)                                                            // Add a Go routine to the waitlist
 					routines += 1                                                        // Add one to the number of active goroutines
