@@ -96,16 +96,16 @@ func createHTML(keys []string) string {
 	// Yes I am sure there are much better ways to do this, it is on the to-do list
 	final += `<!doctype html>
 	<html lang="en">
-	 <head>
-	 <link rel="stylesheet" href="gallery.css">
-	  <meta charset="utf-8">
-	  
-	  <title>Image Gallery</title>
-	  <meta name="description" content="Responsive Image Gallery">
-	  <meta name="author" content="Tim Wells">
-	  
-	  <style type="text/css">
-	  </style>
+	<head>
+	<link rel="stylesheet" href="gallery.css">
+	<meta charset="utf-8">
+	
+	<title>Image Gallery</title>
+	<meta name="description" content="Responsive Image Gallery">
+	<meta name="author" content="Tim Wells">
+	
+	<style type="text/css">
+	</style>
 	</head>
 	<body>
 	<div id="gallery">
@@ -247,8 +247,8 @@ func thumbnailDir(dir string, height int, width int, quality int, maxroutines in
 
 func main() {
 
-	port := ":8081" // Port to listen on
-	region := ""    // AWS region to be used
+	port := ""   // Port to listen on
+	region := "" // AWS region to be used
 	bucket := ""
 	prefix := ""
 	var minutes int64 = 20   // Number of minutes the the presigned urls will be good for
