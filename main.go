@@ -57,9 +57,9 @@ func getObjects(client *s3.S3, region string, bucket string, prefix string, maxk
 // bucket is a string annotating the S3 bucket to be used. Example "ryans-test-bucket675"
 // keys is a slice of the object keys in an S3 bucket prefix
 // minutes is the number of minutes the presigned urls should be good for
-func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) []string {
+func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) map[string]string {
 
-	var final []string // Holds final value for return
+	final := make(map[string]string)
 
 	// iterate through objects keys from the bucket + prefix
 	for _, key := range keys {
@@ -77,7 +77,9 @@ func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) []st
 		}
 
 		// Append the url to final for return
-		final = append(final, urlStr)
+		key = key[strings.LastIndex(key, "/")+1 : strings.LastIndex(key, "_thumb")]
+		final[key] = urlStr
+		fmt.Println(key)
 	}
 
 	return final
@@ -86,7 +88,7 @@ func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) []st
 // Takes in a string slice of presigned urls and generates the html page to send to the user
 // Returns the HTML as a string
 // keys is a slice of the presigned urls to be used in the gallery
-func createHTML(keys []string) string {
+func createHTML(keys map[string]string) string {
 
 	// Holds final value for return
 	// In this case it is a string that holds the HTML to send to the user
@@ -102,7 +104,7 @@ func createHTML(keys []string) string {
 	
 	<title>Image Gallery</title>
 	<meta name="description" content="Responsive Image Gallery">
-	<meta name="author" content="Tim Wells">
+	<meta name="author" content="Ryan Strom">
 	
 	<style type="text/css">
 	</style>
@@ -112,8 +114,8 @@ func createHTML(keys []string) string {
 	`
 
 	// Iterate through the slice of urls and add them as images to the HTML
-	for _, key := range keys {
-		final += fmt.Sprintf("<a href=\"%v\" target=\"_blank\"><img src=\"%v\"></a>\n", key, key)
+	for key, url := range keys {
+		final += fmt.Sprintf("<a id=\"%v\" href=\"%v\" target=\"_blank\"><img src=\"%v\"></a>\n", key, url, url)
 	}
 
 	// Add the final part of the HTML
