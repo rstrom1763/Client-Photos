@@ -168,7 +168,7 @@ func createThumbnail(src string, dst string, height int, width int, quality int)
 	}
 
 	// Open the image
-	orig, err := imaging.Open(src)
+	orig, err := imaging.Open(src, imaging.AutoOrientation(true))
 	if err != nil {
 		log.Fatalf("Failed to open image: %v", err)
 	}
