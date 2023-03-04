@@ -3,13 +3,14 @@ module main
 go 1.19
 
 require (
+	github.com/alexander-melentyev/gin-nocache v1.0.2
 	github.com/aws/aws-sdk-go v1.44.208
 	github.com/disintegration/imaging v1.6.2
 	github.com/gin-gonic/gin v1.9.0
+	github.com/joho/godotenv v1.5.1
 )
 
 require (
-	github.com/alexander-melentyev/gin-nocache v1.0.2 // indirect
 	github.com/bytedance/sonic v1.8.0 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect

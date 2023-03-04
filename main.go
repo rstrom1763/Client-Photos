@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -18,9 +19,23 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/disintegration/imaging"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 var wg sync.WaitGroup //Create the waitgroup object
+
+// Get key from the env file
+func env(key string) string {
+
+	// load .env file
+	err := godotenv.Load(".env")
+
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+
+	return os.Getenv(key)
+}
 
 // Lists all the objects in an S3 Bucket prefix
 // client is the S3 client object. Used to connect to the S3 service
@@ -79,7 +94,7 @@ func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) map[
 		// Append the url to final for return
 		key = key[strings.LastIndex(key, "/")+1 : strings.LastIndex(key, "_thumb")]
 		final[key] = urlStr
-		fmt.Println(key)
+
 	}
 
 	return final
@@ -248,13 +263,20 @@ func thumbnailDir(dir string, height int, width int, quality int, maxroutines in
 }
 
 func main() {
-
-	port := ""   // Port to listen on
-	region := "" // AWS region to be used
-	bucket := ""
-	prefix := ""
-	var minutes int64 = 20   // Number of minutes the the presigned urls will be good for
-	var maxkeys int64 = 1000 // Max number of objects to get from the S3 prefix
+	port := env("PORT")     // Port to listen on
+	region := env("REGION") // AWS region to be used
+	bucket := env("BUCKET")
+	prefix := env("PREFIX")
+	var minutes int64
+	minutes, err := strconv.ParseInt(env("MINUTES"), 10, 64) // Number of minutes the the presigned urls will be good for
+	if err != nil {
+		log.Fatal(err)
+	}
+	var maxkeys int64
+	maxkeys, err = strconv.ParseInt(env("MAXKEYS"), 10, 64) // Max number of objects to get from the S3 prefix
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Create S3 service client based on the configuration
 	sess, err := session.NewSession(&aws.Config{
@@ -270,6 +292,7 @@ func main() {
 	r := gin.Default()                          // Initialize Gin
 	r.Use(nocache.NoCache())                    // Sets gin to disable browser caching
 	r.StaticFile("/gallery.css", "gallery.css") // Tells Gin to send the gallery.css file when requested
+	r.StaticFile("js.js", "js.js")
 
 	//Route for health check
 	r.GET("/ping", func(c *gin.Context) {
