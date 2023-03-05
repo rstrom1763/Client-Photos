@@ -5,7 +5,7 @@ function markImage(id) {
         img.childNodes[0].style = null
     } else {
         img.alt = "1"
-        borderPX = Math.floor(img.childNodes[0].width * .025)
+        borderPX = Math.floor(img.childNodes[0].width * .0125)
         img.childNodes[0].style = "outline: " + borderPX + "px solid #51f542;outline-offset: -" + borderPX + "px;"
     }
 }
