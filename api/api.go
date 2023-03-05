@@ -137,15 +137,9 @@ func main() {
 	bucket := env("BUCKET")
 	prefix := env("PREFIX")
 	var minutes int64
-	minutes, err := strconv.ParseInt(env("MINUTES"), 10, 64) // Number of minutes the the presigned urls will be good for
-	if err != nil {
-		log.Fatal(err)
-	}
+	minutes, _ = strconv.ParseInt(env("MINUTES"), 10, 64) // Number of minutes the the presigned urls will be good for
 	var maxkeys int64
-	maxkeys, err = strconv.ParseInt(env("MAXKEYS"), 10, 64) // Max number of objects to get from the S3 prefix
-	if err != nil {
-		log.Fatal(err)
-	}
+	maxkeys, _ = strconv.ParseInt(env("MAXKEYS"), 10, 64) // Max number of objects to get from the S3 prefix
 
 	// Create S3 service client based on the configuration
 	sess, err := session.NewSession(&aws.Config{
