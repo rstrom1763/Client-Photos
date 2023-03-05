@@ -112,7 +112,6 @@ func createHTML(keys map[string]string) string {
 	
 	<title>Image Gallery</title>
 	<meta name="description" content="Responsive Image Gallery">
-	<meta name="author" content="Ryan Strom">
 	
 	<style type="text/css">
 	</style>
