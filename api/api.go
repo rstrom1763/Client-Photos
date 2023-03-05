@@ -22,7 +22,6 @@ func env(key string) string {
 
 	// load .env file
 	err := godotenv.Load("../.env")
-
 	if err != nil {
 		log.Fatalf("Error loading .env file")
 	}
@@ -108,6 +107,7 @@ func createHTML(keys map[string]string) string {
 	<html lang="en">
 	<head>
 	<link rel="stylesheet" href="gallery.css">
+	<script src="js.js"></script>
 	<meta charset="utf-8">
 	
 	<title>Image Gallery</title>
@@ -122,7 +122,7 @@ func createHTML(keys map[string]string) string {
 
 	// Iterate through the slice of urls and add them as images to the HTML
 	for key, url := range keys {
-		final += fmt.Sprintf("<a id=\"%v\" href=\"%v\" target=\"_blank\"><img src=\"%v\"></a>\n", key, url, url)
+		final += fmt.Sprintf("<a id=\"%v\" onclick=\"markImage(this.id)\" alt=\"0\"><img src=\"%v\" ></a>\n", key, url)
 	}
 
 	// Add the final part of the HTML
