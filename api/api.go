@@ -106,17 +106,53 @@ func createHTML(keys map[string]string) string {
 	final += `<!doctype html>
 	<html lang="en">
 	<head>
-	<link rel="stylesheet" href="gallery.css">
-	<script src="js.js"></script>
-	<meta charset="utf-8">
-	
-	<title>Image Gallery</title>
-	<meta name="description" content="Responsive Image Gallery">
-	
-	<style type="text/css">
+	<style>
+	body {margin:0;}
+
+	.navbar {
+	z-index:9999;
+	overflow: hidden;
+	background-color: #333;
+	position: fixed;
+	top: 0;
+	width: 100%;
+	}
+
+	.navbar a {
+	float: right;
+	display: block;
+	color: #f2f2f2;
+	text-align: center;
+	padding: 14px 16px;
+	text-decoration: none;
+	font-size: 17px;
+	}
+
+	.navbar a:hover {
+	background: #ddd;
+	color: black;
+	}
+
+	.main {
+	padding: 16px;
+	margin-top: 30px;
+	height: 1500px; /* Used in this example to enable scrolling */
+	}
+	</style>
+		<link rel="stylesheet" href="gallery.css">
+		<script src="js.js"></script>
+		<meta charset="utf-8">
+		
+		<title>Image Gallery</title>
+		<meta name="description" content="Responsive Image Gallery">
+		
+		<style type="text/css">
 	</style>
 	</head>
 	<body>
+	<div class="navbar">
+	<a >Submit</a>
+	</div>
 	<div id="gallery">
 	`
 
