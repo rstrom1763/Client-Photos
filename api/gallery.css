@@ -21,25 +21,28 @@
     filter: drop-shadow(2px 2px 2px rgb(0, 0, 0));
 }
 
-#gallery img:hover{
-    transition: transform .4s;
-    z-index: 9999;
-    position:relative;
-    z-index: 200;
-    transform: scale(1.38);
-
-}
-
-#gallery img:not(:hover){
-    transition: transform .4s;
-    z-index: 1;
-    position:relative;
-    transform: scale(1);
-
-}
-
 body {
     background-color: #f8f2e6;
+}
+
+/*If client has mouse pointer implement hover image zoom feature*/
+@media (hover: hover) and (pointer: fine) {
+    #gallery img:hover{
+        transition: transform .4s;
+        z-index: 9999;
+        position:relative;
+        z-index: 200;
+        transform: scale(1.38);
+    
+    }
+    
+    #gallery img:not(:hover){
+        transition: transform .4s;
+        z-index: 1;
+        position:relative;
+        transform: scale(1);
+    
+    }
 }
 
 @media (max-width: 1400px) {
