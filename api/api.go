@@ -157,6 +157,7 @@ func main() {
 	r.Use(nocache.NoCache())                    // Sets gin to disable browser caching
 	r.StaticFile("/gallery.css", "gallery.css") // Tells Gin to send the gallery.css file when requested
 	r.StaticFile("js.js", "js.js")
+	r.StaticFile("/favicon.ico", "favicon.ico")
 
 	//Route for health check
 	r.GET("/ping", func(c *gin.Context) {
