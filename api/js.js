@@ -28,7 +28,7 @@ function submit() {
     }
 
     let xhr = new XMLHttpRequest();
-    xhr.open("POST", "http://localhost:8081/submit");
+    xhr.open("POST", "https://pastromiphotography.com/submit");
     xhr.setRequestHeader("Accept", "application/json");
     xhr.setRequestHeader("Content-Type", "application/json");
 
