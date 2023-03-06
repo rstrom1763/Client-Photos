@@ -202,6 +202,6 @@ func main() {
 		c.Data(http.StatusOK, "text/html; charaset-utf-8", []byte(html)) // Send the HTML to the client
 	})
 
-	fmt.Printf("Listening on port %v...", port) //Notifies that server is running on X port
-	r.Run(port)                                 //Start running the Gin server
+	fmt.Printf("Listening on port %v...\n", port) //Notifies that server is running on X port
+	r.Run(port)                                   //Start running the Gin server
 }
