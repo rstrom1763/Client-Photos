@@ -143,7 +143,8 @@ func thumbnailDir(dir string, height int, width int, quality int, maxroutines in
 func main() {
 
 	args := os.Args
-	if len(args) < 6 {
+	good_arg_len := 6
+	if len(args) < good_arg_len || len(args) > good_arg_len{
 		log.Fatal("Usage: dir, height, width, quality, maxroutines")
 	}
 	height, _ := strconv.Atoi(args[2])
