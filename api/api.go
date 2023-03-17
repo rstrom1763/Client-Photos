@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -192,7 +193,10 @@ func main() {
 			log.Fatal(err)
 		}
 
-		c.IndentedJSON(http.StatusOK, string(picks))
+		var results map[string]any
+		json.Unmarshal([]byte(picks), &results)
+
+		c.IndentedJSON(http.StatusOK, results)
 	})
 
 	// Route to request the image gallery
