@@ -11,7 +11,9 @@ function markImage(id) {
 }
 
 function submit() {
-    var pics = []
+    var pics = {
+        picks: []
+    }
     var gallery = document.getElementById("gallery")
     gallery = gallery.childNodes
 
@@ -21,7 +23,7 @@ function submit() {
 
             if (gallery[i].alt == "1") {
 
-                pics.push(gallery[i].id)
+                pics.picks.push(gallery[i].id)
 
             }
         }
