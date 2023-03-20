@@ -208,5 +208,5 @@ func main() {
 	})
 
 	fmt.Printf("Listening on port %v...\n", port) //Notifies that server is running on X port
-	r.Run(port)                                   //Start running the Gin server
+	r.Run(":" + port)                             //Start running the Gin server
 }
