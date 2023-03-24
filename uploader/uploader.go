@@ -54,6 +54,10 @@ func createThumbnail(src string, dst string, height int, width int, quality int,
 	// Tells whether the image is portrait or landscape orientation
 	var orientation string
 
+	if quality < 1 || quality > 99 {
+		log.Fatal("Quality must be between 1 and 99 \n")
+	}
+
 	// Determine orientation, annotate it in the orientation variable
 	width1, height1 := getImageDimension(src)
 	if width1 > height1 {
@@ -128,7 +132,7 @@ func thumbnailDir(dir string, height int, width int, quality int, maxroutines in
 					// If the number of active goroutines reaches the max desired concurrent goroutines, wait for them to finish
 					// Reset counter to zero then continue
 					if routines >= maxroutines {
-						for true {
+						for {
 
 							chanlen := len(respchan)
 							if chanlen > 0 {
