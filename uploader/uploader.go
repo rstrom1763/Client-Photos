@@ -136,7 +136,7 @@ func thumbnailDir(dir string, height int, width int, quality int, maxroutines in
 
 							chanlen := len(respchan)
 							if chanlen > 0 {
-								fmt.Println(<-respchan)
+								fmt.Sprint(<-respchan)
 								routines -= 1
 								break
 							}
