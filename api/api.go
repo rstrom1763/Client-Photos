@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -14,6 +15,8 @@ import (
 	nocache "github.com/alexander-melentyev/gin-nocache"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -29,6 +32,30 @@ func env(key string) string {
 	}
 
 	return os.Getenv(key)
+}
+
+// This function renews the dynamoDB client on a 4 minute interval
+// This prevents security token expiration errors
+// Gets put into a goroutine to run in the background
+func autoRenewDynamoCreds(svc **dynamodb.DynamoDB) {
+
+	for {
+
+		time.Sleep(time.Minute * 4)
+
+		// snippet-start:[dynamodb.go.create_item.session]
+		// Initialize a session that the SDK will use to load
+		// credentials from the shared credentials file ~/.aws/credentials
+		// and region from the shared configuration file ~/.aws/config.
+		dynamoSess := session.Must(session.NewSessionWithOptions(session.Options{
+			SharedConfigState: session.SharedConfigEnable,
+		}))
+
+		// Create DynamoDB client
+		*svc = dynamodb.New(dynamoSess)
+
+	}
+
 }
 
 // Lists all the objects in an S3 Bucket prefix
@@ -111,7 +138,7 @@ func createHTML(keys map[string]string) string {
 		<link rel="stylesheet" href="gallery.css">
 		<script src="js.js"></script>
 		<meta charset="utf-8">
-		
+
 		<title>Image Gallery</title>
 		<meta name="description" content="Responsive Image Gallery">
 	</head>
@@ -133,24 +160,93 @@ func createHTML(keys map[string]string) string {
 	return final
 }
 
+func getUser(tablename string, username string, svc *dynamodb.DynamoDB) map[string]string {
+	result, err := svc.GetItem(&dynamodb.GetItemInput{
+		TableName: aws.String(tablename),
+		Key: map[string]*dynamodb.AttributeValue{
+			"username": {
+				S: aws.String(username),
+			},
+		},
+	})
+	if err != nil {
+		log.Fatalf("Got error calling GetItem: %s", err)
+	}
+	final := make(map[string]string)
+	err = dynamodbattribute.UnmarshalMap(result.Item, &final)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return final
+}
+
+func createUser(tablename string, user map[string]string, svc *dynamodb.DynamoDB) error {
+
+	av, err := dynamodbattribute.MarshalMap(user)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Got error marshalling new user item: %s", err))
+	}
+
+	input := &dynamodb.PutItemInput{
+		Item:      av,
+		TableName: aws.String(tablename),
+	}
+
+	_, err = svc.PutItem(input)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Got error calling PutItem: %s", err))
+	}
+
+	return nil
+
+}
+
+// Converts string map to json string
+func map2json(object map[string]string) string {
+	json, err := json.Marshal(object)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return string(json)
+}
+
+// Returns error code and ends handler function for gin routes
+func abortWithError(statusCode int, err error, c *gin.Context) {
+
+	c.AbortWithError(statusCode, err)
+	c.JSON(statusCode, gin.H{"status": fmt.Sprint(err)})
+
+}
+
 func main() {
-	port := env("PORT")     // Port to listen on
-	region := env("REGION") // AWS region to be used
-	bucket := env("BUCKET")
-	prefix := env("PREFIX")
+	port := env("PORT")           // Port to listen on
+	region := env("REGION")       // AWS region to be used
+	bucket := env("BUCKET")       // S3 bucket to be referenced
+	prefix := env("PREFIX")       // Bucket prefix to use
+	tablename := env("TABLENAME") // DynamoDB table to use
 	var minutes int64
 	minutes, _ = strconv.ParseInt(env("MINUTES"), 10, 64) // Number of minutes the the presigned urls will be good for
 	var maxkeys int64
 	maxkeys, _ = strconv.ParseInt(env("MAXKEYS"), 10, 64) // Max number of objects to get from the S3 prefix
 
 	// Create S3 service client based on the configuration
-	sess, err := session.NewSession(&aws.Config{
+	s3sess, err := session.NewSession(&aws.Config{
 		Region: aws.String(region)},
 	)
 	if err != nil {
 		log.Fatal(err)
 	}
-	client := s3.New(sess)
+	client := s3.New(s3sess)
+
+	// Initialize a session that the SDK will use to load
+	// credentials from the shared credentials file ~/.aws/credentials
+	// and region from the shared configuration file ~/.aws/config.
+	dynamoSess := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
+	// Create DynamoDB client session
+	svc := dynamodb.New(dynamoSess)
+	go autoRenewDynamoCreds(&svc) //Renew client session every 4 minutes to prevent token expiry
 
 	// Initialize Gin
 	gin.SetMode(gin.ReleaseMode)                // Turn off debugging mode
@@ -169,6 +265,14 @@ func main() {
 
 	})
 
+	// Route to request the image gallery
+	r.GET("/", func(c *gin.Context) {
+		objects := getObjects(client, region, bucket, prefix, maxkeys)   // Get the prefix objects
+		urls := createUrls(client, bucket, objects, minutes)             // Generate the presigned urls
+		html := createHTML(urls)                                         // Generate the HTML
+		c.Data(http.StatusOK, "text/html; charaset-utf-8", []byte(html)) // Send the HTML to the client
+	})
+
 	r.POST("/submit", func(c *gin.Context) {
 
 		body, err := io.ReadAll(c.Request.Body)
@@ -184,6 +288,7 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "success",
 		})
+
 	})
 
 	r.GET("/getSelections", func(c *gin.Context) {
@@ -197,14 +302,44 @@ func main() {
 		json.Unmarshal([]byte(picks), &results)
 
 		c.IndentedJSON(http.StatusOK, results)
+
 	})
 
-	// Route to request the image gallery
-	r.GET("/", func(c *gin.Context) {
-		objects := getObjects(client, region, bucket, prefix, maxkeys)   // Get the prefix objects
-		urls := createUrls(client, bucket, objects, minutes)             // Generate the presigned urls
-		html := createHTML(urls)                                         // Generate the HTML
-		c.Data(http.StatusOK, "text/html; charaset-utf-8", []byte(html)) // Send the HTML to the client
+	// Get a user from the DB
+	r.GET("/user/:username", func(c *gin.Context) {
+		username := c.Param("username")
+		result := getUser(tablename, username, svc)
+		c.JSON(http.StatusOK, result)
+	})
+
+	r.POST("/createUser", func(c *gin.Context) {
+
+		// Read the request body into body variable
+		body, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			abortWithError(http.StatusInternalServerError, err, c)
+			return
+		}
+		if string(body) == "" {
+			err = errors.New("Body is empty")
+			abortWithError(http.StatusBadRequest, err, c)
+			return
+		}
+
+		// Unmarshal the body json into a string map
+		var userMap map[string]string
+		json.Unmarshal(body, &userMap)
+
+		// Create the user in DynamoDB
+		err = createUser(tablename, userMap, svc)
+		if err != nil {
+			abortWithError(http.StatusInternalServerError, err, c)
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status": "success",
+		})
 	})
 
 	fmt.Printf("Listening on port %v...\n", port) //Notifies that server is running on X port
