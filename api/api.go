@@ -22,6 +22,20 @@ import (
 	"github.com/joho/godotenv"
 )
 
+type User struct {
+	Username   string `json:"username"`
+	First_name string `json:"first_name"`
+	Last_name  string `json:"last_name"`
+	Email      string `json:"email"`
+	Phone      string `json:"phone"`
+	Address    string `json:"address"`
+	City       string `json:"city"`
+	State      string `json:"state"`
+	Password   string `json:"password"`
+	Salt       string `json:"salt"`
+	Zip        string `json:"zip"`
+}
+
 // Get key from the env file
 func env(key string) string {
 
@@ -160,7 +174,7 @@ func createHTML(keys map[string]string) string {
 	return final
 }
 
-func getUser(tablename string, username string, svc *dynamodb.DynamoDB) map[string]string {
+func getUser(tablename string, username string, svc *dynamodb.DynamoDB) (map[string]string, error) {
 	result, err := svc.GetItem(&dynamodb.GetItemInput{
 		TableName: aws.String(tablename),
 		Key: map[string]*dynamodb.AttributeValue{
@@ -177,12 +191,32 @@ func getUser(tablename string, username string, svc *dynamodb.DynamoDB) map[stri
 	if err != nil {
 		log.Fatal(err)
 	}
-	return final
+
+	if final["username"] == "" {
+		return nil, errors.New("User does not exist")
+	}
+
+	return final, nil
 }
 
-func createUser(tablename string, user map[string]string, svc *dynamodb.DynamoDB) error {
+func createUser(tablename string, user User, svc *dynamodb.DynamoDB) error {
 
-	av, err := dynamodbattribute.MarshalMap(user)
+	var userMap map[string]string
+	userJson, err := json.Marshal(user)
+	if err != nil {
+		errorMessage := "Could not marshal user struct"
+		log.Println(errorMessage)
+		return errors.New(errorMessage)
+	}
+
+	err = json.Unmarshal(userJson, &userMap)
+
+	_, err = getUser(tablename, userMap["username"], svc)
+	if err == nil {
+		return errors.New("User already exists")
+	}
+
+	av, err := dynamodbattribute.MarshalMap(userMap)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Got error marshalling new user item: %s", err))
 	}
@@ -308,7 +342,11 @@ func main() {
 	// Get a user from the DB
 	r.GET("/user/:username", func(c *gin.Context) {
 		username := c.Param("username")
-		result := getUser(tablename, username, svc)
+		result, err := getUser(tablename, username, svc)
+		if err != nil {
+			abortWithError(404, err, c)
+			return
+		}
 		c.JSON(http.StatusOK, result)
 	})
 
@@ -326,12 +364,12 @@ func main() {
 			return
 		}
 
-		// Unmarshal the body json into a string map
-		var userMap map[string]string
-		json.Unmarshal(body, &userMap)
+		// Unmarshal the body json into a user struct
+		var user User
+		json.Unmarshal(body, &user)
 
 		// Create the user in DynamoDB
-		err = createUser(tablename, userMap, svc)
+		err = createUser(tablename, user, svc)
 		if err != nil {
 			abortWithError(http.StatusInternalServerError, err, c)
 			return
