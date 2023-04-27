@@ -20,6 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
@@ -32,7 +33,6 @@ type User struct {
 	City       string `json:"city"`
 	State      string `json:"state"`
 	Password   string `json:"password"`
-	Salt       string `json:"salt"`
 	Zip        string `json:"zip"`
 }
 
@@ -367,6 +367,14 @@ func main() {
 		// Unmarshal the body json into a user struct
 		var user User
 		json.Unmarshal(body, &user)
+		
+		//Convert the password from the request body into a salted hash using bcrypt
+		var hash []byte
+		hash, err = bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+		if err != nil {
+			log.Fatal("Could not hash the password ", err)
+		}
+		user.Password = string(hash)
 
 		// Create the user in DynamoDB
 		err = createUser(tablename, user, svc)
