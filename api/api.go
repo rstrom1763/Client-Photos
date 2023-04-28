@@ -367,12 +367,14 @@ func main() {
 		// Unmarshal the body json into a user struct
 		var user User
 		json.Unmarshal(body, &user)
-		
+
 		//Convert the password from the request body into a salted hash using bcrypt
 		var hash []byte
 		hash, err = bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 		if err != nil {
-			log.Fatal("Could not hash the password ", err)
+			err = errors.New(fmt.Sprintf("Could not hash the password ", err))
+			abortWithError(http.StatusInternalServerError, err, c)
+			return
 		}
 		user.Password = string(hash)
 
