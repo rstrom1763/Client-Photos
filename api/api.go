@@ -211,6 +211,8 @@ func createUser(tablename string, user User, svc *dynamodb.DynamoDB) error {
 
 	err = json.Unmarshal(userJson, &userMap)
 
+	userMap["username"] = strings.ToLower(userMap["username"]) //Ensure username is all lowercase
+
 	_, err = getUser(tablename, userMap["username"], svc)
 	if err == nil {
 		return errors.New("User already exists")
@@ -391,5 +393,8 @@ func main() {
 	})
 
 	fmt.Printf("Listening on port %v...\n", port) //Notifies that server is running on X port
-	r.Run(":" + port)                             //Start running the Gin server
+	err = r.Run(":" + port)                       //Start running the Gin server
+	if err != nil {
+		fmt.Println(err)
+	}
 }
