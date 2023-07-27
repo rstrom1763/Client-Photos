@@ -30,7 +30,7 @@ function submit() {
     }
 
     let xhr = new XMLHttpRequest();
-    xhr.open("POST", window.location.href+"submit");
+    xhr.open("POST", window.location.href + "submit");
     xhr.setRequestHeader("Accept", "application/json");
     xhr.setRequestHeader("Content-Type", "application/json");
 
@@ -45,3 +45,10 @@ function submit() {
     xhr.send(JSON.stringify(pics));
 
 }
+
+// Wait for all images to load
+window.addEventListener("load", function () {
+    // Hide the loading screen once all images are loaded
+    const loadingScreen = document.getElementById("loading-screen");
+    loadingScreen.style.display = "none";
+});

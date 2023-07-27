@@ -157,6 +157,9 @@ func createHTML(keys map[string]string) string {
 		<meta name="description" content="Responsive Image Gallery">
 	</head>
 	<body>
+	<div id="loading-screen">
+    <div class="loader"></div>
+  </div>
 	<div class="navbar" onClick="submit()">
 	<a>Submit</a>
 	</div>
