@@ -38,7 +38,7 @@ function submit() {
         if (xhr.readyState === 4) {
             console.log(xhr.status);
             console.log(xhr.responseText);
-            alert("Your selections have been submitted!!!")
+            alert("Your selections have been submitted")
         }
     };
 
