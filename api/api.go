@@ -255,15 +255,6 @@ func createUser(tablename string, user User, svc *dynamodb.DynamoDB) error {
 
 }
 
-// Converts string map to json string
-func map2json(object map[string]string) string {
-	json, err := json.Marshal(object)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return string(json)
-}
-
 // Returns error code and ends handler function for gin routes
 func abortWithError(statusCode int, err error, c *gin.Context) {
 
