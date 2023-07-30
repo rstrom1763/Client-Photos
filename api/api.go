@@ -219,14 +219,14 @@ func createUser(tablename string, user User, svc *dynamodb.DynamoDB) error {
 	var userMap map[string]string
 	userJson, err := json.Marshal(user)
 	if err != nil {
-		errorMessage := "Could not marshal user struct"
+		errorMessage := "could not marshal user struct"
 		log.Println(errorMessage)
 		return errors.New(errorMessage)
 	}
 
 	err = json.Unmarshal(userJson, &userMap)
 	if err != nil {
-		return fmt.Errorf("Error unmarshalling json: %v", err)
+		return fmt.Errorf("error unmarshalling json: %v", err)
 	}
 
 	userMap["username"] = strings.ToLower(userMap["username"]) //Ensure username is all lowercase
@@ -238,7 +238,7 @@ func createUser(tablename string, user User, svc *dynamodb.DynamoDB) error {
 
 	av, err := dynamodbattribute.MarshalMap(userMap)
 	if err != nil {
-		return fmt.Errorf("Got error marshalling new user item: %s", err)
+		return fmt.Errorf("got error marshalling new user item: %s", err)
 	}
 
 	input := &dynamodb.PutItemInput{
@@ -248,7 +248,7 @@ func createUser(tablename string, user User, svc *dynamodb.DynamoDB) error {
 
 	_, err = svc.PutItem(input)
 	if err != nil {
-		return fmt.Errorf("Got error calling PutItem: %s", err)
+		return fmt.Errorf("got error calling PutItem: %s", err)
 	}
 
 	return nil
@@ -464,7 +464,7 @@ func main() {
 		var hash []byte
 		hash, err = bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 		if err != nil {
-			err = fmt.Errorf("Could not hash the password %v", err)
+			err = fmt.Errorf("could not hash the password %v", err)
 			abortWithError(http.StatusInternalServerError, err, c)
 			return
 		}
