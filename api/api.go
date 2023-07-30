@@ -456,7 +456,7 @@ func main() {
 		var hash []byte
 		hash, err = bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 		if err != nil {
-			err = errors.New(fmt.Sprintf("Could not hash the password ", err))
+			err = errors.New(fmt.Sprintf("Could not hash the password %v", err))
 			abortWithError(http.StatusInternalServerError, err, c)
 			return
 		}
