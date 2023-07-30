@@ -225,6 +225,9 @@ func createUser(tablename string, user User, svc *dynamodb.DynamoDB) error {
 	}
 
 	err = json.Unmarshal(userJson, &userMap)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error unmarshalling json: %v", err))
+	}
 
 	userMap["username"] = strings.ToLower(userMap["username"]) //Ensure username is all lowercase
 
