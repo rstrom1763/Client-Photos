@@ -443,7 +443,7 @@ func main() {
 			return
 		}
 		if string(body) == "" {
-			err = errors.New("Body is empty")
+			err = errors.New("body is empty")
 			abortWithError(http.StatusBadRequest, err, c)
 			return
 		}
