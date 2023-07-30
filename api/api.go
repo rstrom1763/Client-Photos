@@ -43,6 +43,11 @@ type User struct {
 	Zip        string `json:"zip"`
 }
 
+type Thumbnail struct {
+	Key string
+	Url string
+}
+
 // Get key from the env file
 func env(key string) string {
 
@@ -114,9 +119,9 @@ func getObjects(client *s3.S3, region string, bucket string, prefix string, maxk
 // bucket is a string annotating the S3 bucket to be used. Example "ryans-test-bucket675"
 // keys is a slice of the object keys in an S3 bucket prefix
 // minutes is the number of minutes the presigned urls should be good for
-func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) map[string]string {
+func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) []Thumbnail {
 
-	final := make(map[string]string)
+	var final []Thumbnail
 
 	// iterate through objects keys from the bucket + prefix
 	for _, key := range keys {
@@ -135,7 +140,7 @@ func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) map[
 
 		// Append the url to final for return
 		key = key[strings.LastIndex(key, "/")+1 : strings.LastIndex(key, "_thumb")]
-		final[key] = urlStr
+		final = append(final, Thumbnail{Key: key, Url: urlStr})
 
 	}
 
@@ -145,7 +150,7 @@ func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) map[
 // Takes in a string slice of presigned urls and generates the html page to send to the user
 // Returns the HTML as a string
 // keys is a slice of the presigned urls to be used in the gallery
-func createHTML(keys map[string]string) string {
+func createHTML(keys []Thumbnail) string {
 
 	// Holds final value for return
 	// In this case it is a string that holds the HTML to send to the user
@@ -174,8 +179,8 @@ func createHTML(keys map[string]string) string {
 	`
 
 	// Iterate through the slice of urls and add them as images to the HTML
-	for key, url := range keys {
-		final += fmt.Sprintf("<a id=\"%v\" onclick=\"markImage(this.id)\" alt=\"0\"><img src=\"%v\" ></a>\n", key, url)
+	for _, thumbnail := range keys {
+		final += fmt.Sprintf("<a id=\"%v\" onclick=\"markImage(this.id)\" alt=\"0\"><img src=\"%v\" ></a>\n", thumbnail.Key, thumbnail.Url)
 	}
 
 	// Add the final part of the HTML
