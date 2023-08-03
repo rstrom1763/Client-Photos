@@ -1,12 +1,18 @@
+selected_counter = 0 //Used to store the number of selected photos
+
 function markImage(id) {
     var img = document.getElementById(id)
     if (img.alt == "1") {
         img.alt = "0";
         img.childNodes[0].style = null
+        selected_counter--
+        document.getElementById("counter").innerHTML = selected_counter + " Items Selected"
     } else {
         img.alt = "1"
         borderPX = Math.floor(img.childNodes[0].width * .0125)
         img.childNodes[0].style = "outline: " + borderPX + "px solid #ff6600;outline-offset: -" + borderPX + "px;"
+        selected_counter++
+        document.getElementById("counter").innerHTML = selected_counter + " Items Selected"
     }
 }
 
