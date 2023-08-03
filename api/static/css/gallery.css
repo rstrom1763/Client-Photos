@@ -54,6 +54,7 @@
     height: auto !important;
     margin-bottom: 5px;
     filter: drop-shadow(2px 2px 2px rgb(0, 0, 0));
+    cursor: pointer
 }
 
 body {
@@ -83,6 +84,7 @@ body {
 .navbar a:hover {
     background: #ddd;
     color: black;
+    cursor: pointer
 }
 
 .main {
