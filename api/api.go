@@ -154,7 +154,7 @@ func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) []Th
 // keys is a slice of the presigned urls to be used in the gallery
 func createHTML(keys []Thumbnail) string {
 
-	tmpl, err := template.ParseFiles("./pages/gallery.html")
+	tmpl, err := template.ParseFiles("./static/pages/gallery.html")
 	if err != nil {
 		log.Fatalf("Something went wrong: %v", err)
 	}
@@ -345,12 +345,12 @@ func main() {
 	go autoRenewDynamoCreds(&svc) //Renew client session every 4 minutes to prevent token expiry
 
 	// Initialize Gin
-	gin.SetMode(gin.ReleaseMode)                // Turn off debugging mode
-	r := gin.Default()                          // Initialize Gin
-	r.Use(nocache.NoCache())                    // Sets gin to disable browser caching
-	r.StaticFile("/gallery.css", "gallery.css") // Tells Gin to send the gallery.css file when requested
-	r.StaticFile("js.js", "js.js")
-	r.StaticFile("/favicon.ico", "favicon.ico")
+	gin.SetMode(gin.ReleaseMode)                             // Turn off debugging mode
+	r := gin.Default()                                       // Initialize Gin
+	r.Use(nocache.NoCache())                                 // Sets gin to disable browser caching
+	r.StaticFile("/gallery.css", "./static/css/gallery.css") // Tells Gin to send the gallery.css file when requested
+	r.StaticFile("/js.js", "./static/js.js")
+	r.StaticFile("/favicon.ico", "./static/favicon.ico")
 
 	//Route for health check
 	r.GET("/ping", func(c *gin.Context) {
