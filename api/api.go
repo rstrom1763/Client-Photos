@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -9,6 +10,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"log"
 	"math/big"
@@ -152,41 +154,18 @@ func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) []Th
 // keys is a slice of the presigned urls to be used in the gallery
 func createHTML(keys []Thumbnail) string {
 
-	// Holds final value for return
-	// In this case it is a string that holds the HTML to send to the user
-	var final string
-
-	// Add first part of the HTML to the string
-	// Yes I am sure there are much better ways to do this, it is on the to-do list
-	final += `<!doctype html>
-	<html lang="en">
-	<head>
-		<link rel="stylesheet" href="gallery.css">
-		<script src="js.js"></script>
-		<meta charset="utf-8">
-
-		<title>Image Gallery</title>
-		<meta name="description" content="Responsive Image Gallery">
-	</head>
-	<body>
-	<div id="loading-screen">
-    <div class="loader"></div>
-  </div>
-	<div class="navbar" onClick="submit()">
-	<a>Submit</a>
-	</div>
-	<div id="gallery">
-	`
-
-	// Iterate through the slice of urls and add them as images to the HTML
-	for _, thumbnail := range keys {
-		final += fmt.Sprintf("<a id=\"%v\" onclick=\"markImage(this.id)\" alt=\"0\"><img src=\"%v\" ></a>\n", thumbnail.Key, thumbnail.Url)
+	tmpl, err := template.ParseFiles("./pages/gallery.html")
+	if err != nil {
+		log.Fatalf("Something went wrong: %v", err)
 	}
 
-	// Add the final part of the HTML
-	final += `</div></body></html>`
+	var final bytes.Buffer
+	err = tmpl.Execute(&final, keys)
+	if err != nil {
+		log.Fatalf("Something went wrong: %v", err)
+	}
 
-	return final
+	return final.String()
 }
 
 func getUser(tablename string, username string, svc *dynamodb.DynamoDB) (map[string]string, error) {
