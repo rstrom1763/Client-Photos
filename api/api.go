@@ -154,7 +154,7 @@ func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) []Th
 // keys is a slice of the presigned urls to be used in the gallery
 func createHTML(keys []Thumbnail) string {
 
-	tmpl, err := template.ParseFiles("./static/pages/gallery.html")
+	tmpl, err := template.ParseFiles("./static/html/gallery.html")
 	if err != nil {
 		log.Fatalf("Something went wrong: %v", err)
 	}
