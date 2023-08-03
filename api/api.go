@@ -364,10 +364,10 @@ func main() {
 
 	// Route to request the image gallery
 	r.GET("/", func(c *gin.Context) {
-		objects := getObjects(client, region, bucket, prefix, maxkeys)   // Get the prefix objects
-		urls := createUrls(client, bucket, objects, minutes)             // Generate the presigned urls
-		html := createHTML(urls)                                         // Generate the HTML
-		c.Data(http.StatusOK, "text/html; charaset-utf-8", []byte(html)) // Send the HTML to the client
+		objects := getObjects(client, region, bucket, prefix, maxkeys)  // Get the prefix objects
+		urls := createUrls(client, bucket, objects, minutes)            // Generate the presigned urls
+		html := createHTML(urls)                                        // Generate the HTML
+		c.Data(http.StatusOK, "text/html; charset-utf-8", []byte(html)) // Send the HTML to the client
 	})
 
 	r.GET("/login", func(c *gin.Context) {
