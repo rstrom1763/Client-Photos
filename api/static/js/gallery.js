@@ -18,7 +18,8 @@ function markImage(id) {
 
 function submit() {
     var pics = {
-        picks: []
+        picks: [],
+        count: 0
     }
     var gallery = document.getElementById("gallery")
     gallery = gallery.childNodes
@@ -34,6 +35,8 @@ function submit() {
             }
         }
     }
+
+    pics.count = pics.picks.length
 
     let xhr = new XMLHttpRequest();
     xhr.open("POST", window.location.href + "submit");
