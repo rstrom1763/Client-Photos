@@ -351,6 +351,7 @@ func main() {
 	r.StaticFile("/gallery.css", "./static/css/gallery.css") // Tells Gin to send the gallery.css file when requested
 	r.StaticFile("/gallery.js", "./static/js/gallery.js")
 	r.StaticFile("/favicon.ico", "./static/favicon.ico")
+	r.StaticFile("/login.css", "./static/css/login.css")
 
 	//Route for health check
 	r.GET("/ping", func(c *gin.Context) {
@@ -367,6 +368,11 @@ func main() {
 		urls := createUrls(client, bucket, objects, minutes)             // Generate the presigned urls
 		html := createHTML(urls)                                         // Generate the HTML
 		c.Data(http.StatusOK, "text/html; charaset-utf-8", []byte(html)) // Send the HTML to the client
+	})
+
+	r.GET("/login", func(c *gin.Context) {
+		html, _ := os.ReadFile("./static/pages/login.html")
+		c.Data(http.StatusOK, "text/html", html)
 	})
 
 	r.POST("/submit", func(c *gin.Context) {
