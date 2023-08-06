@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -42,6 +43,7 @@ type User struct {
 	City       string `json:"city"`
 	State      string `json:"state"`
 	Password   string `json:"password"`
+	Salt       string `json:"salt"`
 	Zip        string `json:"zip"`
 }
 
@@ -125,25 +127,29 @@ func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) []Th
 
 	var final []Thumbnail
 
+	num := 10
+	count := 0
 	// iterate through objects keys from the bucket + prefix
 	for _, key := range keys {
+		if count < num {
+			// Create the request object using the key + bucket
+			req, _ := client.GetObjectRequest(&s3.GetObjectInput{
+				Bucket: aws.String(bucket),
+				Key:    aws.String(key),
+			})
 
-		// Create the request object using the key + bucket
-		req, _ := client.GetObjectRequest(&s3.GetObjectInput{
-			Bucket: aws.String(bucket),
-			Key:    aws.String(key),
-		})
+			// Generate presigned url for x minutes using the request object
+			urlStr, err := req.Presign(time.Duration(minutes) * time.Minute)
+			if err != nil {
+				log.Println("Failed to sign request", err)
+			}
 
-		// Generate presigned url for x minutes using the request object
-		urlStr, err := req.Presign(time.Duration(minutes) * time.Minute)
-		if err != nil {
-			log.Println("Failed to sign request", err)
+			// Append the url to final for return
+			key = key[strings.LastIndex(key, "/")+1 : strings.LastIndex(key, "_thumb")]
+			final = append(final, Thumbnail{Key: key, Url: urlStr})
+
 		}
-
-		// Append the url to final for return
-		key = key[strings.LastIndex(key, "/")+1 : strings.LastIndex(key, "_thumb")]
-		final = append(final, Thumbnail{Key: key, Url: urlStr})
-
+		count += 1
 	}
 
 	return final
@@ -166,6 +172,15 @@ func createHTML(keys []Thumbnail) string {
 	}
 
 	return final.String()
+}
+
+func generateSalt(length int) (string, error) {
+	salt := make([]byte, length)
+	_, err := rand.Read(salt)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(salt), nil
 }
 
 func getUser(tablename string, username string, svc *dynamodb.DynamoDB) (map[string]string, error) {
@@ -350,8 +365,10 @@ func main() {
 	r.Use(nocache.NoCache())                                 // Sets gin to disable browser caching
 	r.StaticFile("/gallery.css", "./static/css/gallery.css") // Tells Gin to send the gallery.css file when requested
 	r.StaticFile("/gallery.js", "./static/js/gallery.js")
+	r.StaticFile("/signup.js", "./static/js/signup.js")
 	r.StaticFile("/favicon.ico", "./static/favicon.ico")
 	r.StaticFile("/login.css", "./static/css/login.css")
+	r.StaticFile("/signup.css", "./static/css/signup.css")
 
 	//Route for health check
 	r.GET("/ping", func(c *gin.Context) {
@@ -371,7 +388,12 @@ func main() {
 	})
 
 	r.GET("/login", func(c *gin.Context) {
-		html, _ := os.ReadFile("./static/pages/login.html")
+		html, _ := os.ReadFile("./static/html/login.html")
+		c.Data(http.StatusOK, "text/html", html)
+	})
+
+	r.GET("/signup", func(c *gin.Context) {
+		html, _ := os.ReadFile("./static/html/signup.html")
 		c.Data(http.StatusOK, "text/html", html)
 	})
 
@@ -435,6 +457,8 @@ func main() {
 		// Unmarshal the body json into a user struct
 		var user User
 		json.Unmarshal(body, &user)
+		user.Salt, _ = generateSalt(32)
+		user.Password = user.Password + user.Salt
 
 		//Convert the password from the request body into a salted hash using bcrypt
 		var hash []byte
