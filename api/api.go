@@ -318,6 +318,13 @@ func fileExists(filename string) bool {
 	return false // Error occurred (e.g., permission denied)
 }
 
+func verifyPassword(hashedPassword string, inputPassword string, salt string) bool {
+	// Compare the hashed password with the input password
+	inputPassword = inputPassword + salt
+	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(inputPassword))
+	return err == nil
+}
+
 func main() {
 	port := env("PORT")           // Port to listen on
 	region := env("REGION")       // AWS region to be used
@@ -480,6 +487,29 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "success",
 		})
+	})
+
+	r.POST("/checkpass", func(c *gin.Context) {
+		// Read the request body into body variable
+		body, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			abortWithError(http.StatusInternalServerError, err, c)
+			return
+		}
+		if string(body) == "" {
+			err = errors.New("body is empty")
+			abortWithError(http.StatusBadRequest, err, c)
+			return
+		}
+
+		var providedCreds map[string]string
+		json.Unmarshal(body, &providedCreds)
+		user, _ := getUser(tablename, providedCreds["username"], svc)
+
+		auth := verifyPassword(user["password"], providedCreds["password"], user["salt"])
+
+		c.JSON(http.StatusAccepted, gin.H{"accepted": auth})
+
 	})
 
 	fmt.Printf("Listening on port %v...\n", port) //Notifies that server is running on X port
