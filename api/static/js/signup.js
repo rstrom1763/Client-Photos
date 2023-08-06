@@ -3,8 +3,8 @@ function submit_new_user(){
     user.username = document.getElementById("username").value;
     user.password = document.getElementById("password").value;
     user.email = document.getElementById("email").value;
-    user.first = document.getElementById("first name").value;
-    user.last = document.getElementById("last name").value;
+    user.first = document.getElementById("first").value;
+    user.last = document.getElementById("last").value;
     user.address = document.getElementById("address").value;
     user.city = document.getElementById("city").value;
     user.state = document.getElementById("state").value;

@@ -35,8 +35,8 @@ import (
 
 type User struct {
 	Username   string `json:"username"`
-	First_name string `json:"first_name"`
-	Last_name  string `json:"last_name"`
+	First_name string `json:"first"`
+	Last_name  string `json:"last"`
 	Email      string `json:"email"`
 	Phone      string `json:"phone"`
 	Address    string `json:"address"`
