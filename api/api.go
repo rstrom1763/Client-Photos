@@ -29,28 +29,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis"
 	"github.com/joho/godotenv"
 	"golang.org/x/crypto/bcrypt"
 )
-
-type User struct {
-	Username   string `json:"username"`
-	First_name string `json:"first"`
-	Last_name  string `json:"last"`
-	Email      string `json:"email"`
-	Phone      string `json:"phone"`
-	Address    string `json:"address"`
-	City       string `json:"city"`
-	State      string `json:"state"`
-	Password   string `json:"password"`
-	Salt       string `json:"salt"`
-	Zip        string `json:"zip"`
-}
-
-type Thumbnail struct {
-	Key string
-	Url string
-}
 
 // Get key from the env file
 func env(key string) string {
@@ -366,6 +348,17 @@ func main() {
 	svc := dynamodb.New(dynamoSess)
 	go autoRenewDynamoCreds(&svc) //Renew client session every 4 minutes to prevent token expiry
 
+	redclient := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0,
+	})
+
+	err = redclient.Set("foo", "bar", time.Second*15).Err()
+	if err != nil {
+		panic(err)
+	}
+
 	// Initialize Gin
 	gin.SetMode(gin.ReleaseMode)                             // Turn off debugging mode
 	r := gin.Default()                                       // Initialize Gin
@@ -504,12 +497,24 @@ func main() {
 
 		var providedCreds map[string]string
 		json.Unmarshal(body, &providedCreds)
-		user, _ := getUser(tablename, providedCreds["username"], svc)
+		user, err := getUser(tablename, providedCreds["username"], svc)
+		if err != nil {
+			log.Fatalf("There was a problem fetching a user from the DB: %v", err)
+		}
 
-		auth := verifyPassword(user["password"], providedCreds["password"], user["salt"])
+		authbool := verifyPassword(user["password"], providedCreds["password"], user["salt"])
 
-		c.JSON(http.StatusAccepted, gin.H{"accepted": auth})
+		c.JSON(http.StatusAccepted, gin.H{"accepted": authbool})
 
+	})
+
+	r.GET("/test", func(c *gin.Context) {
+		val, err := redclient.Get("foo").Result()
+		if err != nil {
+			c.Data(404, "text/plain", []byte("Not found"))
+		} else {
+			c.Data(http.StatusOK, "text/plain", []byte(val))
+		}
 	})
 
 	fmt.Printf("Listening on port %v...\n", port) //Notifies that server is running on X port
