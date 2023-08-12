@@ -165,6 +165,14 @@ func generateSalt(length int) (string, error) {
 	return base64.StdEncoding.EncodeToString(salt), nil
 }
 
+func generateSessionToken() (string, error) {
+	token, err := generateSalt(32)
+	if err != nil {
+		return "", fmt.Errorf("could not generate token: %v", err)
+	}
+	return token, nil
+}
+
 func getUser(tablename string, username string, svc *dynamodb.DynamoDB) (map[string]string, error) {
 	result, err := svc.GetItem(&dynamodb.GetItemInput{
 		TableName: aws.String(tablename),
@@ -229,6 +237,13 @@ func createUser(tablename string, user User, svc *dynamodb.DynamoDB) error {
 
 	return nil
 
+}
+
+func setToken(r *redis.Client, username string, token string) {
+	err := r.Set(username, token, time.Minute*15).Err()
+	if err != nil {
+		log.Printf("there was a problem setting the token in redis: %v", err)
+	}
 }
 
 // Returns error code and ends handler function for gin routes
@@ -354,11 +369,6 @@ func main() {
 		DB:       0,
 	})
 
-	err = redclient.Set("foo", "bar", time.Second*15).Err()
-	if err != nil {
-		panic(err)
-	}
-
 	// Initialize Gin
 	gin.SetMode(gin.ReleaseMode)                             // Turn off debugging mode
 	r := gin.Default()                                       // Initialize Gin
@@ -482,7 +492,7 @@ func main() {
 		})
 	})
 
-	r.POST("/checkpass", func(c *gin.Context) {
+	r.POST("/signin", func(c *gin.Context) {
 		// Read the request body into body variable
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
@@ -504,12 +514,21 @@ func main() {
 
 		authbool := verifyPassword(user["password"], providedCreds["password"], user["salt"])
 
-		c.JSON(http.StatusAccepted, gin.H{"accepted": authbool})
+		if authbool {
+			token, err := generateSessionToken()
+			if err != nil {
+				log.Printf("Could not generate token for %v: %v", providedCreds["username"], err)
+			}
+			setToken(redclient, providedCreds["username"], token)
+			c.JSON(http.StatusAccepted, gin.H{"accepted": authbool, "token": token})
+		} else if !authbool {
+			c.Data(http.StatusNotFound, "text/plain", []byte("incorrect username or password"))
+		}
 
 	})
 
 	r.GET("/test", func(c *gin.Context) {
-		val, err := redclient.Get("foo").Result()
+		val, err := redclient.Get("rstrom1763").Result()
 		if err != nil {
 			c.Data(404, "text/plain", []byte("Not found"))
 		} else {
