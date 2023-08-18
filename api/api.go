@@ -236,7 +236,6 @@ func createUser(tablename string, user User, svc *dynamodb.DynamoDB) error {
 	}
 
 	return nil
-
 }
 
 func setToken(r *redis.Client, username string, token string) {
@@ -251,7 +250,6 @@ func abortWithError(statusCode int, err error, c *gin.Context) {
 
 	c.AbortWithError(statusCode, err)
 	c.JSON(statusCode, gin.H{"status": fmt.Sprint(err)})
-
 }
 
 func generateSSL() {
@@ -320,6 +318,19 @@ func verifyPassword(hashedPassword string, inputPassword string, salt string) bo
 	inputPassword = inputPassword + salt
 	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(inputPassword))
 	return err == nil
+}
+
+func checkToken(client *redis.Client, token string, username string) bool {
+	val, err := client.Get(username).Result()
+	if err != nil {
+		return false
+	} else {
+		if val == token {
+			return true
+		} else {
+			return false
+		}
+	}
 }
 
 func main() {
@@ -427,6 +438,14 @@ func main() {
 
 	r.GET("/getSelections", func(c *gin.Context) {
 
+		token := c.Request.Header.Get("auth-token")
+		username := c.Request.Header.Get("username")
+
+		if !checkToken(redclient, token, username) {
+			c.Redirect(http.StatusFound, "/signin")
+			return
+		}
+
 		picks, err := os.ReadFile("./picks.json")
 		if err != nil {
 			log.Fatal(err)
@@ -492,6 +511,10 @@ func main() {
 		})
 	})
 
+	r.GET("/signin", func(c *gin.Context) {
+		c.Data(http.StatusOK, "text/html", []byte("<html>You have reached the signin page</html>"))
+	})
+
 	r.POST("/signin", func(c *gin.Context) {
 		// Read the request body into body variable
 		body, err := io.ReadAll(c.Request.Body)
@@ -527,15 +550,6 @@ func main() {
 
 	})
 
-	r.GET("/test", func(c *gin.Context) {
-		val, err := redclient.Get("rstrom1763").Result()
-		if err != nil {
-			c.Data(404, "text/plain", []byte("Not found"))
-		} else {
-			c.Data(http.StatusOK, "text/plain", []byte(val))
-		}
-	})
-
 	fmt.Printf("Listening on port %v...\n", port) //Notifies that server is running on X port
 	if protocol == "http" {                       //Start running the Gin server
 		err = r.Run(":" + port)
@@ -550,5 +564,4 @@ func main() {
 	} else {
 		log.Fatal("Something went wrong starting the Gin server")
 	}
-
 }
