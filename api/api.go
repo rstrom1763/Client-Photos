@@ -22,7 +22,6 @@ import (
 	"strings"
 	"time"
 
-	nocache "github.com/alexander-melentyev/gin-nocache"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -31,6 +30,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
 	"github.com/joho/godotenv"
+	nocache "github.com/things-go/gin-contrib/nocache"
 	"golang.org/x/crypto/bcrypt"
 )
 
