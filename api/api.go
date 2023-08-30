@@ -173,7 +173,7 @@ func generateSessionToken() (string, error) {
 	return token, nil
 }
 
-func getUser(tablename string, username string, svc *dynamodb.DynamoDB) (map[string]string, error) {
+func getUser(tablename string, username string, svc *dynamodb.DynamoDB) (User, error) {
 	result, err := svc.GetItem(&dynamodb.GetItemInput{
 		TableName: aws.String(tablename),
 		Key: map[string]*dynamodb.AttributeValue{
@@ -185,14 +185,15 @@ func getUser(tablename string, username string, svc *dynamodb.DynamoDB) (map[str
 	if err != nil {
 		log.Fatalf("Got error calling GetItem: %s", err)
 	}
-	final := make(map[string]string)
+	var final User
+	fmt.Println("Test1")
 	err = dynamodbattribute.UnmarshalMap(result.Item, &final)
 	if err != nil {
-		log.Fatal(err)
+		return final, errors.New("could not unmarshal user object")
 	}
-
-	if final["username"] == "" {
-		return nil, errors.New("User does not exist")
+	fmt.Println("Test2")
+	if final.Username == "" {
+		return final, errors.New("User does not exist")
 	}
 
 	return final, nil
@@ -436,13 +437,14 @@ func main() {
 
 	})
 
-	r.GET("/getSelections", func(c *gin.Context) {
+	r.GET("/getSelections/:shoot", func(c *gin.Context) {
 
+		//shoot := c.Param("shoot")
 		token := c.Request.Header.Get("auth-token")
 		username := c.Request.Header.Get("username")
 
 		if !checkToken(redclient, token, username) {
-			c.Redirect(http.StatusFound, "/signin")
+			c.Redirect(http.StatusFound, "/login")
 			return
 		}
 
@@ -535,7 +537,7 @@ func main() {
 			log.Fatalf("There was a problem fetching a user from the DB: %v", err)
 		}
 
-		authbool := verifyPassword(user["password"], providedCreds["password"], user["salt"])
+		authbool := verifyPassword(user.Password, providedCreds["password"], user.Salt)
 
 		if authbool {
 			token, err := generateSessionToken()
