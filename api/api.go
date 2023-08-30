@@ -185,13 +185,13 @@ func getUser(tablename string, username string, svc *dynamodb.DynamoDB) (User, e
 	if err != nil {
 		log.Fatalf("Got error calling GetItem: %s", err)
 	}
+
 	var final User
-	fmt.Println("Test1")
 	err = dynamodbattribute.UnmarshalMap(result.Item, &final)
 	if err != nil {
 		return final, errors.New("could not unmarshal user object")
 	}
-	fmt.Println("Test2")
+
 	if final.Username == "" {
 		return final, errors.New("User does not exist")
 	}
