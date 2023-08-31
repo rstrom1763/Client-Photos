@@ -67,7 +67,6 @@ func autoRenewDynamoCreds(svc **dynamodb.DynamoDB) {
 		*svc = dynamodb.New(dynamoSess)
 
 	}
-
 }
 
 // Lists all the objects in an S3 Bucket prefix
@@ -439,7 +438,9 @@ func main() {
 
 	r.GET("/getSelections/:shoot", func(c *gin.Context) {
 
-		//shoot := c.Param("shoot")
+		shoot := c.Param("shoot")
+		shoot = strings.ToLower(shoot)
+
 		token := c.Request.Header.Get("auth-token")
 		username := c.Request.Header.Get("username")
 
@@ -448,15 +449,17 @@ func main() {
 			return
 		}
 
-		picks, err := os.ReadFile("./picks.json")
+		data, err := getUser(tablename, username, svc)
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("could not get shoot data: %v", err)
 		}
 
-		var results map[string]any
-		json.Unmarshal([]byte(picks), &results)
+		results, err := json.Marshal(data.Shoots[shoot].Picks)
+		if err != nil {
+			log.Printf("could not marshal shoot json data: %v", err)
+		}
 
-		c.IndentedJSON(http.StatusOK, results)
+		c.Data(http.StatusOK, "application/json", results)
 
 	})
 
