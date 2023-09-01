@@ -402,15 +402,47 @@ func main() {
 
 	// Route to request the image gallery
 	r.GET("/", func(c *gin.Context) {
-		objects := getObjects(client, region, bucket, prefix, maxkeys)  // Get the prefix objects
-		urls := createUrls(client, bucket, objects, minutes)            // Generate the presigned urls
-		html := createHTML(urls)                                        // Generate the HTML
-		c.Data(http.StatusOK, "text/html; charset-utf-8", []byte(html)) // Send the HTML to the client
+
+		token := c.Request.Header.Get("auth-token")
+		username := c.Request.Header.Get("username")
+
+		if !checkToken(redclient, token, username) {
+			c.Redirect(302, "/login")
+			return
+		} else {
+			c.Redirect(302, "/home")
+		}
+
 	})
 
 	r.GET("/login", func(c *gin.Context) {
 		html, _ := os.ReadFile("./static/html/login.html")
 		c.Data(http.StatusOK, "text/html", html)
+	})
+
+	r.GET("/shoot/:shoot", func(c *gin.Context) {
+
+		token := c.Request.Header.Get("auth-token")
+		username := c.Request.Header.Get("username")
+		shoot := c.Param("shoot")
+
+		if !checkToken(redclient, token, username) {
+			c.Redirect(302, "/login")
+			return
+		}
+
+		data, err := getUser(tablename, username, svc)
+		if err != nil {
+			log.Printf("could not get shoot data: %v", err)
+			c.Data(http.StatusNotFound, "text/plain", []byte("Could not find the requested shoot"))
+		}
+
+		prefix = data.Shoots[shoot].Prefix
+		fmt.Println(prefix)
+		objects := getObjects(client, region, bucket, prefix, maxkeys)  // Get the prefix objects
+		urls := createUrls(client, bucket, objects, minutes)            // Generate the presigned urls
+		html := createHTML(urls)                                        // Generate the HTML
+		c.Data(http.StatusOK, "text/html; charset-utf-8", []byte(html)) // Send the HTML to the client
 	})
 
 	r.GET("/signup", func(c *gin.Context) {
