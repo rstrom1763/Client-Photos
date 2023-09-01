@@ -395,15 +395,16 @@ func main() {
 	})
 
 	// Initialize Gin
-	gin.SetMode(gin.ReleaseMode)                             // Turn off debugging mode
-	r := gin.Default()                                       // Initialize Gin
-	r.Use(nocache.NoCache())                                 // Sets gin to disable browser caching
-	r.StaticFile("/gallery.css", "./static/css/gallery.css") // Tells Gin to send the gallery.css file when requested
-	r.StaticFile("/gallery.js", "./static/js/gallery.js")
+	gin.SetMode(gin.ReleaseMode)                                   // Turn off debugging mode
+	r := gin.Default()                                             // Initialize Gin
+	r.Use(nocache.NoCache())                                       // Sets gin to disable browser caching
+	r.StaticFile("/shoot/gallery.css", "./static/css/gallery.css") // Tells Gin to send the gallery.css file when requested
+	r.StaticFile("/shoot/gallery.js", "./static/js/gallery.js")
 	r.StaticFile("/signup.js", "./static/js/signup.js")
 	r.StaticFile("/favicon.ico", "./static/favicon.ico")
 	r.StaticFile("/login.css", "./static/css/login.css")
 	r.StaticFile("/signup.css", "./static/css/signup.css")
+	r.StaticFile("/login.js", "./static/js/login.js")
 
 	//Route for health check
 	r.GET("/ping", func(c *gin.Context) {
@@ -426,6 +427,10 @@ func main() {
 			c.Redirect(302, "/home")
 		}
 
+	})
+
+	r.GET("/home", func(c *gin.Context) {
+		c.Data(http.StatusOK, "text/plain", []byte("You have reached your home page!"))
 	})
 
 	r.GET("/login", func(c *gin.Context) {
@@ -451,7 +456,6 @@ func main() {
 		}
 
 		prefix = data.Shoots[shoot].Prefix
-		fmt.Println(prefix)
 		objects := getObjects(client, region, bucket, prefix, maxkeys)  // Get the prefix objects
 		urls := createUrls(client, bucket, objects, minutes)            // Generate the presigned urls
 		html := createHTML(urls)                                        // Generate the HTML
@@ -578,6 +582,7 @@ func main() {
 		}
 
 		var providedCreds map[string]string
+
 		json.Unmarshal(body, &providedCreds)
 		user, err := getUser(tablename, providedCreds["username"], svc)
 		if err != nil {
