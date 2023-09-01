@@ -313,6 +313,10 @@ func fileExists(filename string) bool {
 	return false // Error occurred (e.g., permission denied)
 }
 
+func resetTokenTimeout(redclient *redis.Client, username string, redisTimeout int) {
+	_ = redclient.Expire(username, time.Minute*(time.Duration(redisTimeout)))
+}
+
 func verifyPassword(hashedPassword string, inputPassword string, salt string) bool {
 	// Compare the hashed password with the input password
 	inputPassword = inputPassword + salt
@@ -340,6 +344,7 @@ func checkToken(c *gin.Context, redclient *redis.Client) (bool, string) {
 		return false, ""
 	} else {
 		if val == cookieValue["token"] {
+			resetTokenTimeout(redclient, cookieValue["username"], 15)
 			return true, cookieValue["username"]
 		} else {
 			return false, ""
