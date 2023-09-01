@@ -320,15 +320,29 @@ func verifyPassword(hashedPassword string, inputPassword string, salt string) bo
 	return err == nil
 }
 
-func checkToken(client *redis.Client, token string, username string) bool {
-	val, err := client.Get(username).Result()
+func checkToken(c *gin.Context, redclient *redis.Client) (bool, string) {
+
+	cookie, err := c.Cookie("authToken")
 	if err != nil {
-		return false
+		log.Printf("could not get cookie value: %v", err)
+		return false, ""
+	}
+
+	var cookieValue map[string]string
+	err = json.Unmarshal([]byte(cookie), &cookieValue)
+	if err != nil {
+		log.Printf("could not unmarshal cookie value: %v", err)
+		return false, ""
+	}
+
+	val, err := redclient.Get(cookieValue["username"]).Result()
+	if err != nil {
+		return false, ""
 	} else {
-		if val == token {
-			return true
+		if val == cookieValue["token"] {
+			return true, cookieValue["username"]
 		} else {
-			return false
+			return false, ""
 		}
 	}
 }
@@ -400,13 +414,12 @@ func main() {
 
 	})
 
-	// Route to request the image gallery
+	// Route to request either login or home page for the user
 	r.GET("/", func(c *gin.Context) {
 
-		token := c.Request.Header.Get("auth-token")
-		username := c.Request.Header.Get("username")
+		auth, _ := checkToken(c, redclient)
 
-		if !checkToken(redclient, token, username) {
+		if !auth {
 			c.Redirect(302, "/login")
 			return
 		} else {
@@ -422,11 +435,11 @@ func main() {
 
 	r.GET("/shoot/:shoot", func(c *gin.Context) {
 
-		token := c.Request.Header.Get("auth-token")
-		username := c.Request.Header.Get("username")
 		shoot := c.Param("shoot")
 
-		if !checkToken(redclient, token, username) {
+		auth, username := checkToken(c, redclient)
+
+		if !auth {
 			c.Redirect(302, "/login")
 			return
 		}
@@ -473,10 +486,9 @@ func main() {
 		shoot := c.Param("shoot")
 		shoot = strings.ToLower(shoot)
 
-		token := c.Request.Header.Get("auth-token")
-		username := c.Request.Header.Get("username")
+		auth, username := checkToken(c, redclient)
 
-		if !checkToken(redclient, token, username) {
+		if !auth {
 			c.Redirect(http.StatusFound, "/login")
 			return
 		}
@@ -580,6 +592,22 @@ func main() {
 				log.Printf("Could not generate token for %v: %v", providedCreds["username"], err)
 			}
 			setToken(redclient, providedCreds["username"], token)
+
+			authJson := map[string]string{"username": user.Username, "token": token}
+			authJsonBytes, err := json.Marshal(authJson)
+			if err != nil {
+				log.Printf("could not marshal json: %v", err)
+			}
+
+			// Create a new cookie
+			authCookie := &http.Cookie{
+				Name:     "authToken",
+				Value:    string(authJsonBytes),
+				HttpOnly: true,
+			}
+
+			c.SetCookie(authCookie.Name, authCookie.Value, int(minutes)*60, "/", c.Request.Host, true, true)
+
 			c.JSON(http.StatusAccepted, gin.H{"accepted": authbool, "token": token})
 		} else if !authbool {
 			c.Data(http.StatusNotFound, "text/plain", []byte("incorrect username or password"))
