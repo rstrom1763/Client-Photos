@@ -439,6 +439,14 @@ func main() {
 	})
 
 	r.GET("/login", func(c *gin.Context) {
+
+		auth, _ := checkToken(c, redclient)
+
+		if auth {
+			c.Redirect(302, "/home")
+			return
+		}
+
 		html, _ := os.ReadFile("./static/html/login.html")
 		c.Data(http.StatusOK, "text/html", html)
 	})
