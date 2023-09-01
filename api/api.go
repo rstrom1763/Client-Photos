@@ -555,8 +555,8 @@ func main() {
 
 	})
 
-	fmt.Printf("Listening on port %v...\n", port) //Notifies that server is running on X port
-	if protocol == "http" {                       //Start running the Gin server
+	fmt.Printf("Listening for %v on port %v...\n", protocol, port) //Notifies that server is running on X port
+	if protocol == "http" {                                        //Start running the Gin server
 		err = r.Run(":" + port)
 		if err != nil {
 			fmt.Println(err)
