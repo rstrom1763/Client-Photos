@@ -31,13 +31,12 @@ function login() {
             console.log(xhr.status);
             console.log(xhr.responseText);
             if (xhr.status === 200 || xhr.status === 202) {
-                console.log(xhr.responseText)
-                setCookie("username", "john_doe", 7); 
-
                 console.log("Authentication success!")
                 let newLink = currentLink.substring(0, currentLink.lastIndexOf("/"))
                 newLink += "/home"
                 window.location.href = newLink
+            } else if (xhr.status === 404) {
+                alert(xhr.responseText)
             } else {
                 alert("Something went wrong")
                 console.log("Something went wrong")
