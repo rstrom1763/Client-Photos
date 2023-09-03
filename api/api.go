@@ -577,10 +577,6 @@ func main() {
 		})
 	})
 
-	r.GET("/signin", func(c *gin.Context) {
-		c.Data(http.StatusOK, "text/html", []byte("<html>You have reached the signin page</html>"))
-	})
-
 	r.POST("/signin", func(c *gin.Context) {
 		// Read the request body into body variable
 		body, err := io.ReadAll(c.Request.Body)
