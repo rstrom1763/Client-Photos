@@ -182,17 +182,17 @@ func getUser(tablename string, username string, svc *dynamodb.DynamoDB) (User, e
 		},
 	})
 	if err != nil {
-		log.Fatalf("Got error calling GetItem: %s", err)
+		return User{}, err
 	}
 
 	var final User
 	err = dynamodbattribute.UnmarshalMap(result.Item, &final)
 	if err != nil {
-		return final, err
+		return User{}, err
 	}
 
 	if final.Username == "" {
-		return final, errors.New("User does not exist")
+		return User{}, errors.New("User does not exist")
 	}
 
 	return final, nil
@@ -514,8 +514,7 @@ func main() {
 
 		auth, username := checkToken(c, redclient)
 		if !auth {
-			err := fmt.Errorf("not authorized")
-			abortWithError(http.StatusUnauthorized, err, c)
+			c.Redirect(302, "/login")
 		}
 
 		shoot := c.Param("shoot")
