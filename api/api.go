@@ -188,7 +188,7 @@ func getUser(tablename string, username string, svc *dynamodb.DynamoDB) (User, e
 	var final User
 	err = dynamodbattribute.UnmarshalMap(result.Item, &final)
 	if err != nil {
-		return final, errors.New("could not unmarshal user object")
+		return final, err
 	}
 
 	if final.Username == "" {
@@ -352,6 +352,42 @@ func checkToken(c *gin.Context, redclient *redis.Client) (bool, string) {
 	}
 }
 
+func updatePicks(tableName string, username string, shootName string, newValue Picks, svc *dynamodb.DynamoDB) error {
+
+	// Define the key to identify the item you want to update
+	key := map[string]*dynamodb.AttributeValue{
+		"username": {
+			S: aws.String(username),
+		},
+	}
+
+	// Define the update expression to set the new property value
+	updateExpression := "SET shoots." + shootName + ".picks = :newValue"
+
+	newPicksMap, _ := dynamodbattribute.MarshalMap(newValue)
+
+	// Define expression attribute values
+	expressionAttributeValues := map[string]*dynamodb.AttributeValue{
+		":newValue": {
+			M: newPicksMap,
+		},
+	}
+
+	// Configure the update input
+	updateInput := &dynamodb.UpdateItemInput{
+		TableName:                 aws.String(tableName),
+		Key:                       key,
+		UpdateExpression:          aws.String(updateExpression),
+		ExpressionAttributeValues: expressionAttributeValues,
+		ReturnValues:              aws.String("UPDATED_NEW"), // If you want to return the updated item
+	}
+
+	// Perform the update operation
+	_, err := svc.UpdateItem(updateInput)
+
+	return err
+}
+
 func main() {
 	port := env("PORT")           // Port to listen on
 	region := env("REGION")       // AWS region to be used
@@ -453,14 +489,13 @@ func main() {
 
 	r.GET("/shoot/:shoot", func(c *gin.Context) {
 
-		shoot := c.Param("shoot")
-
 		auth, username := checkToken(c, redclient)
-
 		if !auth {
 			c.Redirect(302, "/login")
 			return
 		}
+
+		shoot := c.Param("shoot")
 
 		data, err := getUser(tablename, username, svc)
 		if err != nil {
@@ -475,27 +510,54 @@ func main() {
 		c.Data(http.StatusOK, "text/html; charset-utf-8", []byte(html)) // Send the HTML to the client
 	})
 
-	r.GET("/signup", func(c *gin.Context) {
-		html, _ := os.ReadFile("./static/html/signup.html")
-		c.Data(http.StatusOK, "text/html", html)
-	})
+	r.POST("/shoot/:shoot/submitPicks", func(c *gin.Context) {
 
-	r.POST("/submit", func(c *gin.Context) {
+		auth, username := checkToken(c, redclient)
+		if !auth {
+			err := fmt.Errorf("not authorized")
+			abortWithError(http.StatusUnauthorized, err, c)
+		}
+
+		shoot := c.Param("shoot")
 
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("could not read request body: %v", err)
+			abortWithError(http.StatusBadRequest, err, c)
 		}
 
-		err = os.WriteFile("./picks.json", body, 0644)
+		user, err := getUser(tablename, username, svc)
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("could not get user: %v : %v", username, err)
+			abortWithError(http.StatusNotFound, err, c)
+		}
+
+		var picks Picks
+		err = json.Unmarshal(body, &picks)
+		if err != nil {
+			fmt.Printf("could not unmarshal json: %v", err)
+			abortWithError(http.StatusInternalServerError, err, c)
+		}
+
+		modifShoot := user.Shoots[shoot]
+		modifShoot.Picks = picks
+		user.Shoots[shoot] = modifShoot
+
+		err = updatePicks(tablename, username, shoot, picks, svc)
+		if err != nil {
+			fmt.Printf("could not edit picks: %v", err)
+			abortWithError(http.StatusInternalServerError, err, c)
 		}
 
 		c.JSON(http.StatusOK, gin.H{
 			"status": "success",
 		})
 
+	})
+
+	r.GET("/signup", func(c *gin.Context) {
+		html, _ := os.ReadFile("./static/html/signup.html")
+		c.Data(http.StatusOK, "text/html", html)
 	})
 
 	r.GET("/getSelections/:shoot", func(c *gin.Context) {

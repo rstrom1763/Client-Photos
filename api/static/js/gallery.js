@@ -39,7 +39,7 @@ function submit() {
     pics.count = pics.picks.length
 
     let xhr = new XMLHttpRequest();
-    xhr.open("POST", window.location.href + "submit");
+    xhr.open("POST", window.location.href+"/submitPicks");
     xhr.setRequestHeader("Accept", "application/json");
     xhr.setRequestHeader("Content-Type", "application/json");
 
@@ -47,9 +47,9 @@ function submit() {
         if (xhr.readyState === 4) {
             console.log(xhr.status);
             console.log(xhr.responseText);
-            if (xhr.status === 200){
+            if (xhr.status === 200) {
                 alert("Your selections have been submitted")
-            } else{
+            } else {
                 alert("Something went wrong submitting your selections")
             }
         }
