@@ -664,7 +664,9 @@ func main() {
 		json.Unmarshal(body, &providedCreds)
 		user, err := getUser(tablename, providedCreds["username"], svc)
 		if err != nil {
-			log.Fatalf("There was a problem fetching a user from the DB: %v", err)
+			log.Printf("There was a problem fetching a user from the DB: %v", err)
+			abortWithError(http.StatusNotFound, err, c)
+			return
 		}
 
 		authbool := verifyPassword(user.Password, providedCreds["password"], user.Salt)
