@@ -429,11 +429,19 @@ func main() {
 	svc := dynamodb.New(dynamoSess)
 	go autoRenewDynamoCreds(&svc) //Renew client session every 4 minutes to prevent token expiry
 
+	// Create the Redis client
 	redclient := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "",
 		DB:       0,
 	})
+
+	// Test the Redis client connection
+	// Exit program if Redis is unavailable
+	err = redclient.Ping().Err()
+	if err != nil {
+		log.Fatalf("could not connect to Redis: %v", err)
+	}
 
 	// Initialize Gin
 	gin.SetMode(gin.ReleaseMode)                                   // Turn off debugging mode
