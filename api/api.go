@@ -49,7 +49,7 @@ func env(key string) string {
 // This function renews the dynamoDB client on a 4 minute interval
 // This prevents security token expiration errors
 // Gets put into a goroutine to run in the background
-func autoRenewDynamoCreds(svc **dynamodb.DynamoDB) {
+func autoRenewDynamoCreds(svc *dynamodb.DynamoDB) {
 
 	for {
 
@@ -64,7 +64,7 @@ func autoRenewDynamoCreds(svc **dynamodb.DynamoDB) {
 		}))
 
 		// Create DynamoDB client
-		*svc = dynamodb.New(dynamoSess)
+		svc = dynamodb.New(dynamoSess)
 
 	}
 }
@@ -427,7 +427,7 @@ func main() {
 	}))
 	// Create DynamoDB client session
 	svc := dynamodb.New(dynamoSess)
-	go autoRenewDynamoCreds(&svc) //Renew client session every 4 minutes to prevent token expiry
+	go autoRenewDynamoCreds(svc) //Renew client session every 4 minutes to prevent token expiry
 
 	// Create the Redis client
 	redclient := redis.NewClient(&redis.Options{
