@@ -75,24 +75,28 @@ func autoRenewDynamoCreds(svc **dynamodb.DynamoDB) {
 // bucket is a string annotating the S3 bucket to be used. Example "ryans-test-bucket675"
 // prefix is a string annotating the prefix within the bucket to be targeting
 // maxkeys is an int64 to set the max number of objects to return
-func getObjects(client *s3.S3, region string, bucket string, prefix string, maxkeys int64) ([]string, error) {
+func getObjects(client *s3.S3, region string, bucket string, prefix string, page int, page_size int) ([]string, error) {
 
 	var final []string // Holds the final value for the return
+	lower_bound := page * page_size
+	upper_bound := (page * page_size) + page_size
 
 	// List objects in the bucket + prefix
 	objects, err := client.ListObjects(&s3.ListObjectsInput{
 		Bucket:  &bucket,
 		Prefix:  &prefix,
-		MaxKeys: &maxkeys,
+		MaxKeys: aws.Int64(10000),
 	})
 	if err != nil {
 		return []string{}, err
 	}
 
 	// Append the object keys to a slice to return
-	for _, key := range objects.Contents {
+	for i, key := range objects.Contents {
 		if *key.Size > 0 {
-			final = append(final, *key.Key)
+			if i >= lower_bound && i < upper_bound {
+				final = append(final, *key.Key)
+			}
 		}
 	}
 	return final, nil
@@ -397,8 +401,6 @@ func main() {
 	protocol := strings.ToLower(env("PROTOCOL"))
 	var minutes int64
 	minutes, _ = strconv.ParseInt(env("MINUTES"), 10, 64) // Number of minutes the the presigned urls will be good for
-	var maxkeys int64
-	maxkeys, _ = strconv.ParseInt(env("MAXKEYS"), 10, 64) // Max number of objects to get from the S3 prefix
 
 	//Ensure valid protocol env entry
 	if protocol != "http" && protocol != "https" {
@@ -444,9 +446,10 @@ func main() {
 	}
 
 	// Initialize Gin
-	gin.SetMode(gin.ReleaseMode)                                   // Turn off debugging mode
-	r := gin.Default()                                             // Initialize Gin
-	r.Use(nocache.NoCache())                                       // Sets gin to disable browser caching
+	gin.SetMode(gin.ReleaseMode) // Turn off debugging mode
+	r := gin.Default()           // Initialize Gin
+	r.Use(nocache.NoCache())     // Sets gin to disable browser caching
+
 	r.StaticFile("/shoot/gallery.css", "./static/css/gallery.css") // Tells Gin to send the gallery.css file when requested
 	r.StaticFile("/shoot/gallery.js", "./static/js/gallery.js")
 	r.StaticFile("/signup.js", "./static/js/signup.js")
@@ -495,7 +498,7 @@ func main() {
 		c.Data(http.StatusOK, "text/html", html)
 	})
 
-	r.GET("/shoot/:shoot", func(c *gin.Context) {
+	r.GET("/shoot/:shoot/:page", func(c *gin.Context) {
 
 		auth, username := checkToken(c, redclient)
 		if !auth {
@@ -503,6 +506,7 @@ func main() {
 			return
 		}
 
+		page, _ := strconv.Atoi(c.Param("page"))
 		shoot := c.Param("shoot")
 
 		data, err := getUser(tablename, username, svc)
@@ -512,7 +516,7 @@ func main() {
 		}
 
 		prefix = data.Shoots[shoot].Prefix
-		objects, err := getObjects(client, region, bucket, prefix, maxkeys) // Get the prefix objects
+		objects, err := getObjects(client, region, bucket, prefix, page, 10) // Get the prefix objects
 		if err != nil {
 			//log.Print(err.Error())
 			abortWithError(http.StatusBadRequest, err, c)
@@ -528,6 +532,11 @@ func main() {
 			abortWithError(http.StatusBadRequest, err, c)
 		}
 		c.Data(http.StatusOK, "text/html; charset-utf-8", []byte(html)) // Send the HTML to the client
+	})
+
+	r.GET("/shoot/:shoot", func(c *gin.Context) {
+		shoot := c.Param("shoot")
+		c.Redirect(http.StatusFound, "/shoot/"+shoot+"/0")
 	})
 
 	r.POST("/shoot/:shoot/submitPicks", func(c *gin.Context) {
