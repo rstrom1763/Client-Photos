@@ -147,13 +147,15 @@ func createHTML(keys []Thumbnail) (string, error) {
 
 	tmpl, err := template.ParseFiles("./static/html/gallery.html")
 	if err != nil {
+		log.Printf("Could not parse gallery.html")
 		return "", err
 	}
 
 	var final bytes.Buffer
 	err = tmpl.Execute(&final, keys)
 	if err != nil {
-		log.Fatalf("Something went wrong: %v", err)
+		log.Printf("Could not execute html template: %v", err)
+		return "", err
 	}
 
 	return final.String(), nil
@@ -444,7 +446,7 @@ func main() {
 		Region: aws.String(region)},
 	)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error creating S3 Client", err)
 	}
 	client := s3.New(s3sess)
 
@@ -469,7 +471,7 @@ func main() {
 	// Exit program if Redis is unavailable
 	err = redclient.Ping().Err()
 	if err != nil {
-		log.Fatalf("could not connect to Redis: %v", err)
+		log.Fatalf("Could not connect to Redis: %v", err)
 	}
 
 	// Initialize Gin
