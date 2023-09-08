@@ -75,7 +75,7 @@ func autoRenewDynamoCreds(svc **dynamodb.DynamoDB) {
 // bucket is a string annotating the S3 bucket to be used. Example "ryans-test-bucket675"
 // prefix is a string annotating the prefix within the bucket to be targeting
 // maxkeys is an int64 to set the max number of objects to return
-func getObjects(client *s3.S3, region string, bucket string, prefix string, maxkeys int64) []string {
+func getObjects(client *s3.S3, region string, bucket string, prefix string, maxkeys int64) ([]string, error) {
 
 	var final []string // Holds the final value for the return
 
@@ -86,7 +86,7 @@ func getObjects(client *s3.S3, region string, bucket string, prefix string, maxk
 		MaxKeys: &maxkeys,
 	})
 	if err != nil {
-		log.Fatal(err)
+		return []string{}, err
 	}
 
 	// Append the object keys to a slice to return
@@ -95,7 +95,7 @@ func getObjects(client *s3.S3, region string, bucket string, prefix string, maxk
 			final = append(final, *key.Key)
 		}
 	}
-	return final
+	return final, nil
 }
 
 // Takes list of objects in the S3 prefix and creates presigned urls for them
@@ -104,7 +104,7 @@ func getObjects(client *s3.S3, region string, bucket string, prefix string, maxk
 // bucket is a string annotating the S3 bucket to be used. Example "ryans-test-bucket675"
 // keys is a slice of the object keys in an S3 bucket prefix
 // minutes is the number of minutes the presigned urls should be good for
-func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) []Thumbnail {
+func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) ([]Thumbnail, error) {
 
 	var final []Thumbnail
 
@@ -122,7 +122,7 @@ func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) []Th
 			// Generate presigned url for x minutes using the request object
 			urlStr, err := req.Presign(time.Duration(minutes) * time.Minute)
 			if err != nil {
-				log.Println("Failed to sign request", err)
+				return []Thumbnail{}, nil
 			}
 
 			// Append the url to final for return
@@ -133,17 +133,17 @@ func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) []Th
 		count += 1
 	}
 
-	return final
+	return final, nil
 }
 
 // Takes in a string slice of presigned urls and generates the html page to send to the user
 // Returns the HTML as a string
 // keys is a slice of the presigned urls to be used in the gallery
-func createHTML(keys []Thumbnail) string {
+func createHTML(keys []Thumbnail) (string, error) {
 
 	tmpl, err := template.ParseFiles("./static/html/gallery.html")
 	if err != nil {
-		log.Fatalf("Something went wrong: %v", err)
+		return "", err
 	}
 
 	var final bytes.Buffer
@@ -152,7 +152,7 @@ func createHTML(keys []Thumbnail) string {
 		log.Fatalf("Something went wrong: %v", err)
 	}
 
-	return final.String()
+	return final.String(), nil
 }
 
 func generateSalt(length int) (string, error) {
@@ -508,13 +508,25 @@ func main() {
 		data, err := getUser(tablename, username, svc)
 		if err != nil {
 			log.Printf("could not get shoot data: %v", err)
-			c.Data(http.StatusNotFound, "text/plain", []byte("Could not find the requested shoot"))
+			abortWithError(http.StatusNotFound, err, c)
 		}
 
 		prefix = data.Shoots[shoot].Prefix
-		objects := getObjects(client, region, bucket, prefix, maxkeys)  // Get the prefix objects
-		urls := createUrls(client, bucket, objects, minutes)            // Generate the presigned urls
-		html := createHTML(urls)                                        // Generate the HTML
+		objects, err := getObjects(client, region, bucket, prefix, maxkeys) // Get the prefix objects
+		if err != nil {
+			//log.Print(err.Error())
+			abortWithError(http.StatusBadRequest, err, c)
+		}
+		urls, err := createUrls(client, bucket, objects, minutes) // Generate the presigned urls
+		if err != nil {
+			//log.Print(err.Error())
+			abortWithError(http.StatusBadRequest, err, c)
+		}
+		html, err := createHTML(urls) // Generate the HTML
+		if err != nil {
+			//log.Print(err.Error())
+			abortWithError(http.StatusBadRequest, err, c)
+		}
 		c.Data(http.StatusOK, "text/html; charset-utf-8", []byte(html)) // Send the HTML to the client
 	})
 
