@@ -523,6 +523,7 @@ func main() {
 		auth, username := checkToken(c, redclient)
 		if !auth {
 			c.Redirect(302, "/login")
+			return
 		}
 
 		shoot := c.Param("shoot")
