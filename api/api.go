@@ -392,6 +392,33 @@ func updatePicks(tableName string, username string, shootName string, newValue P
 	return err
 }
 
+// This middleware looks at the file being requested regardless of the route
+// If the file is one of the available static js or css files, it sends it to the client
+func StaticHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+		url := fmt.Sprint(c.Request.URL)
+		url_arr := strings.Split(string(url), "/")
+		file := url_arr[len(url_arr)-1]
+		if strings.Contains(file, ".css") || strings.Contains(file, ".js") {
+			if strings.Contains(file, ".css") && fileExists("./static/css/"+file) {
+				data, _ := os.ReadFile("./static/css/" + file)
+				c.Data(http.StatusOK, "text/plain", data)
+			}
+			if strings.Contains(file, ".js") && fileExists("./static/js/"+file) {
+				data, _ := os.ReadFile("./static/js/" + file)
+				c.Data(http.StatusOK, "text/plain", data)
+			}
+		} else if file == "favicon.ico" {
+			data, _ := os.ReadFile("./static/favicon.ico")
+			c.Data(http.StatusOK, "text/plain", data)
+		}
+		// If all else fails, move to the next middleware/handler
+		c.Next()
+	}
+
+}
+
 func main() {
 	port := env("PORT")           // Port to listen on
 	region := env("REGION")       // AWS region to be used
@@ -450,13 +477,7 @@ func main() {
 	r := gin.Default()           // Initialize Gin
 	r.Use(nocache.NoCache())     // Sets gin to disable browser caching
 
-	r.StaticFile("/shoot/gallery.css", "./static/css/gallery.css") // Tells Gin to send the gallery.css file when requested
-	r.StaticFile("/shoot/gallery.js", "./static/js/gallery.js")
-	r.StaticFile("/signup.js", "./static/js/signup.js")
-	r.StaticFile("/favicon.ico", "./static/favicon.ico")
-	r.StaticFile("/login.css", "./static/css/login.css")
-	r.StaticFile("/signup.css", "./static/css/signup.css")
-	r.StaticFile("/login.js", "./static/js/login.js")
+	r.Use(StaticHandler())
 
 	//Route for health check
 	r.GET("/ping", func(c *gin.Context) {
