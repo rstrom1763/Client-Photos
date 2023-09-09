@@ -537,7 +537,7 @@ func main() {
 			abortWithError(http.StatusNotFound, err, c)
 		}
 
-		prefix = data.Shoots[shoot].Prefix
+		prefix := data.Shoots[shoot].Prefix
 		objects, err := getObjects(client, region, bucket, prefix, page, 10) // Get the prefix objects
 		if err != nil {
 			//log.Print(err.Error())
