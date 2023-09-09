@@ -402,18 +402,28 @@ func StaticHandler() gin.HandlerFunc {
 		url := fmt.Sprint(c.Request.URL)
 		url_arr := strings.Split(string(url), "/")
 		file := url_arr[len(url_arr)-1]
+
 		if strings.Contains(file, ".css") || strings.Contains(file, ".js") {
-			if strings.Contains(file, ".css") && fileExists("./static/css/"+file) {
-				data, _ := os.ReadFile("./static/css/" + file)
-				c.Data(http.StatusOK, "text/plain", data)
+
+			if strings.Contains(file, ".css") {
+				if fileExists("./static/css/" + file) {
+					data, _ := os.ReadFile("./static/css/" + file)
+					c.Data(http.StatusOK, "text/css", data)
+					c.Next()
+				}
+			} else if strings.Contains(file, ".js") {
+				if fileExists("./static/js/" + file) {
+					data, _ := os.ReadFile("./static/js/" + file)
+					c.Data(http.StatusOK, "text/plain", data)
+					c.Next()
+				}
 			}
-			if strings.Contains(file, ".js") && fileExists("./static/js/"+file) {
-				data, _ := os.ReadFile("./static/js/" + file)
-				c.Data(http.StatusOK, "text/plain", data)
-			}
+
 		} else if file == "favicon.ico" {
+
 			data, _ := os.ReadFile("./static/favicon.ico")
-			c.Data(http.StatusOK, "text/plain", data)
+			c.Data(http.StatusOK, "image/x-icon", data)
+			c.Next()
 		}
 		// If all else fails, move to the next middleware/handler
 		c.Next()
@@ -445,7 +455,7 @@ func main() {
 		Region: aws.String(region)},
 	)
 	if err != nil {
-		log.Fatalf("Error creating S3 Client", err)
+		log.Fatalf("Error creating S3 Client: %v", err)
 	}
 	client := s3.New(s3sess)
 
