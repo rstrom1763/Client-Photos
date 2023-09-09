@@ -425,7 +425,6 @@ func main() {
 	port := env("PORT")           // Port to listen on
 	region := env("REGION")       // AWS region to be used
 	bucket := env("BUCKET")       // S3 bucket to be referenced
-	prefix := env("PREFIX")       // Bucket prefix to use
 	tablename := env("TABLENAME") // DynamoDB table to use
 	protocol := strings.ToLower(env("PROTOCOL"))
 	var minutes int64
