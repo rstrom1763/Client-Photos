@@ -394,34 +394,58 @@ func updatePicks(tableName string, username string, shootName string, newValue P
 	return err
 }
 
+func cacheStaticFiles() map[string][]byte {
+
+	staticFiles := make(map[string][]byte)
+
+	cssDirHandle, _ := os.Open("./static/css")
+	defer cssDirHandle.Close()
+
+	jsDirHandle, _ := os.Open("./static/js")
+	defer jsDirHandle.Close()
+
+	cssFiles, _ := cssDirHandle.Readdirnames(0)
+	jsFiles, _ := jsDirHandle.Readdirnames(0)
+
+	everythingList := append(jsFiles, cssFiles...)
+
+	for _, fileName := range everythingList {
+		var data []byte
+		if strings.Contains(fileName, ".css") {
+			data, _ = os.ReadFile("./static/css/" + fileName)
+		} else if strings.Contains(fileName, ".js") {
+			data, _ = os.ReadFile("./static/js/" + fileName)
+		}
+		staticFiles[fileName] = data
+	}
+
+	data, _ := os.ReadFile("./static/favicon.ico")
+	staticFiles["favicon.ico"] = data
+
+	return staticFiles
+}
+
 // This middleware looks at the file being requested regardless of the route
 // If the file is one of the available static js or css files, it sends it to the client
-func StaticHandler() gin.HandlerFunc {
+func StaticHandler(staticFiles map[string][]byte) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		url := fmt.Sprint(c.Request.URL)
 		url_arr := strings.Split(string(url), "/")
 		file := url_arr[len(url_arr)-1]
 
-		if strings.Contains(file, ".css") {
-			if fileExists("./static/css/" + file) {
-				data, _ := os.ReadFile("./static/css/" + file)
+		data, exists := staticFiles[file]
+		if exists {
+			if strings.Contains(file, ".css") {
 				c.Data(http.StatusOK, "text/css", data)
-				c.Abort()
-			}
-		} else if strings.Contains(file, ".js") {
-			if fileExists("./static/js/" + file) {
-				data, _ := os.ReadFile("./static/js/" + file)
+			} else if strings.Contains(file, ".js") {
 				c.Data(http.StatusOK, "text/plain", data)
-				c.Abort()
+			} else if file == "favicon.ico" {
+				c.Data(http.StatusOK, "image/x-icon", data)
 			}
-
-		} else if file == "favicon.ico" {
-
-			data, _ := os.ReadFile("./static/favicon.ico")
-			c.Data(http.StatusOK, "image/x-icon", data)
 			c.Abort()
 		}
+
 		// If all else fails, move to the next middleware/handler
 		c.Next()
 	}
@@ -436,6 +460,7 @@ func main() {
 	protocol := strings.ToLower(env("PROTOCOL"))
 	var minutes int64
 	minutes, _ = strconv.ParseInt(env("MINUTES"), 10, 64) // Number of minutes the the presigned urls will be good for
+	staticFiles := cacheStaticFiles()
 
 	//Ensure valid protocol env entry
 	if protocol != "http" && protocol != "https" {
@@ -485,7 +510,7 @@ func main() {
 	r := gin.Default()           // Initialize Gin
 	r.Use(nocache.NoCache())     // Sets gin to disable browser caching
 
-	r.Use(StaticHandler())
+	r.Use(StaticHandler(staticFiles))
 
 	//Route for health check
 	r.GET("/ping", func(c *gin.Context) {
