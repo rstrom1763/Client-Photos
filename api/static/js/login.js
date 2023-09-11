@@ -12,8 +12,6 @@ function setCookie(name, value, minsToExpire) {
     document.cookie = cookieString;
 }
 
-
-
 function login() {
     var auth = {};
     auth.username = document.getElementById("username").value;
@@ -45,3 +43,11 @@ function login() {
     };
     xhr.send(JSON.stringify(auth));
 }
+
+window.addEventListener("load", function () {
+    document.addEventListener("keypress", function (event) {
+        if (event.key === "Enter") {
+            login(); // Call the login function when Enter is pressed
+        }
+    });
+})

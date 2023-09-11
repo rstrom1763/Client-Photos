@@ -36,3 +36,11 @@ function submit_new_user(){
     newLink += "/login"
     window.location.href = newLink
 }
+
+window.addEventListener("load", function () {
+    document.addEventListener("keypress", function (event) {
+        if (event.key === "Enter") {
+            submit_new_user(); // Call the login function when Enter is pressed
+        }
+    });
+})
