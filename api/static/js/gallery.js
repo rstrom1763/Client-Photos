@@ -39,7 +39,7 @@ function submit() {
     pics.count = pics.picks.length
 
     let xhr = new XMLHttpRequest();
-    xhr.open("POST", window.location.href+"/submitPicks");
+    xhr.open("POST", window.location.href + "/submitPicks");
     xhr.setRequestHeader("Accept", "application/json");
     xhr.setRequestHeader("Content-Type", "application/json");
 
@@ -65,3 +65,21 @@ window.addEventListener("load", function () {
     const loadingScreen = document.getElementById("loading-screen");
     loadingScreen.style.display = "none";
 });
+
+function nextPage() {
+    var url = window.location.href;
+    url = url.split("/");
+    url[url.length - 1] = String(parseInt(url[url.length - 1]) + 1)
+    console.log(url.join("/"))
+    window.location.href = url.join("/")
+}
+
+function previousPage() {
+    var url = window.location.href;
+    url = url.split("/");
+    if ((parseInt(url[url.length - 1]) - 1) >= 0) {
+        url[url.length - 1] = String(parseInt(url[url.length - 1]) - 1)
+        console.log(url.join("/"))
+        window.location.href = url.join("/")
+    }
+}

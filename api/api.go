@@ -320,7 +320,7 @@ func fileExists(filename string) bool {
 }
 
 func resetTokenTimeout(redclient *redis.Client, username string, redisTimeout int) {
-	_ = redclient.Expire(username, time.Minute*(time.Duration(redisTimeout)))
+	_ = redclient.Expire(username, time.Minute*15)
 }
 
 func verifyPassword(hashedPassword string, inputPassword string, salt string) bool {
@@ -403,27 +403,24 @@ func StaticHandler() gin.HandlerFunc {
 		url_arr := strings.Split(string(url), "/")
 		file := url_arr[len(url_arr)-1]
 
-		if strings.Contains(file, ".css") || strings.Contains(file, ".js") {
-
-			if strings.Contains(file, ".css") {
-				if fileExists("./static/css/" + file) {
-					data, _ := os.ReadFile("./static/css/" + file)
-					c.Data(http.StatusOK, "text/css", data)
-					c.Next()
-				}
-			} else if strings.Contains(file, ".js") {
-				if fileExists("./static/js/" + file) {
-					data, _ := os.ReadFile("./static/js/" + file)
-					c.Data(http.StatusOK, "text/plain", data)
-					c.Next()
-				}
+		if strings.Contains(file, ".css") {
+			if fileExists("./static/css/" + file) {
+				data, _ := os.ReadFile("./static/css/" + file)
+				c.Data(http.StatusOK, "text/css", data)
+				c.Abort()
+			}
+		} else if strings.Contains(file, ".js") {
+			if fileExists("./static/js/" + file) {
+				data, _ := os.ReadFile("./static/js/" + file)
+				c.Data(http.StatusOK, "text/plain", data)
+				c.Abort()
 			}
 
 		} else if file == "favicon.ico" {
 
 			data, _ := os.ReadFile("./static/favicon.ico")
 			c.Data(http.StatusOK, "image/x-icon", data)
-			c.Next()
+			c.Abort()
 		}
 		// If all else fails, move to the next middleware/handler
 		c.Next()
@@ -571,7 +568,7 @@ func main() {
 		c.Redirect(http.StatusFound, "/shoot/"+shoot+"/0")
 	})
 
-	r.POST("/shoot/:shoot/submitPicks", func(c *gin.Context) {
+	r.POST("/shoot/:shoot/:page/submitPicks", func(c *gin.Context) {
 
 		auth, username := checkToken(c, redclient)
 		if !auth {
@@ -701,6 +698,7 @@ func main() {
 	})
 
 	r.POST("/signin", func(c *gin.Context) {
+
 		// Read the request body into body variable
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
@@ -745,7 +743,8 @@ func main() {
 				HttpOnly: true,
 			}
 
-			c.SetCookie(authCookie.Name, authCookie.Value, int(minutes)*60, "/", c.Request.Host, true, true)
+			weekInSeconds := 604800
+			c.SetCookie(authCookie.Name, authCookie.Value, weekInSeconds, "/", c.Request.Host, true, true)
 
 			c.JSON(http.StatusAccepted, gin.H{"accepted": authbool, "token": token})
 		} else if !authbool {
