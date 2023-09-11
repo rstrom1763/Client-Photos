@@ -245,7 +245,7 @@ func createUser(tablename string, user User, svc *dynamodb.DynamoDB) error {
 }
 
 func setToken(r *redis.Client, username string, token string) {
-	err := r.Set(username, token, time.Minute*15).Err()
+	err := r.Set(username, token, time.Minute*30).Err()
 	if err != nil {
 		log.Printf("there was a problem setting the token in redis: %v", err)
 	}
@@ -320,7 +320,7 @@ func fileExists(filename string) bool {
 }
 
 func resetTokenTimeout(redclient *redis.Client, username string, redisTimeout int) {
-	_ = redclient.Expire(username, time.Minute*15)
+	_ = redclient.Expire(username, time.Minute*time.Duration(redisTimeout))
 }
 
 func verifyPassword(hashedPassword string, inputPassword string, salt string) bool {
@@ -350,7 +350,7 @@ func checkToken(c *gin.Context, redclient *redis.Client) (bool, string) {
 		return false, ""
 	} else {
 		if val == cookieValue["token"] {
-			resetTokenTimeout(redclient, cookieValue["username"], 15)
+			resetTokenTimeout(redclient, cookieValue["username"], 30)
 			return true, cookieValue["username"]
 		} else {
 			return false, ""
