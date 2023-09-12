@@ -434,16 +434,19 @@ func StaticHandler(staticFiles map[string][]byte) gin.HandlerFunc {
 		url_arr := strings.Split(string(url), "/")
 		file := url_arr[len(url_arr)-1]
 
-		data, exists := staticFiles[file]
-		if exists {
-			if strings.Contains(file, ".css") {
-				c.Data(http.StatusOK, "text/css", data)
-			} else if strings.Contains(file, ".js") {
-				c.Data(http.StatusOK, "text/plain", data)
-			} else if file == "favicon.ico" {
-				c.Data(http.StatusOK, "image/x-icon", data)
+		if strings.Contains(file, ".") { // Check to see if the url potentially has a file
+			data, exists := staticFiles[file] // See if the file is cached, if so get it's bytes from the map
+			if exists {
+				if strings.Contains(file, ".css") {
+					c.Data(http.StatusOK, "text/css", data)
+				} else if strings.Contains(file, ".js") {
+					c.Data(http.StatusOK, "text/plain", data)
+				} else if file == "favicon.ico" {
+					c.Data(http.StatusOK, "image/x-icon", data)
+				}
+				c.Abort()
 			}
-			c.Abort()
+
 		}
 
 		// If all else fails, move to the next middleware/handler
@@ -506,11 +509,10 @@ func main() {
 	}
 
 	// Initialize Gin
-	gin.SetMode(gin.ReleaseMode) // Turn off debugging mode
-	r := gin.Default()           // Initialize Gin
-	r.Use(nocache.NoCache())     // Sets gin to disable browser caching
-
-	r.Use(StaticHandler(staticFiles))
+	gin.SetMode(gin.ReleaseMode)      // Turn off debugging mode
+	r := gin.Default()                // Initialize Gin
+	r.Use(nocache.NoCache())          // Sets gin to disable browser caching
+	r.Use(StaticHandler(staticFiles)) // Cache and serve static files
 
 	//Route for health check
 	r.GET("/ping", func(c *gin.Context) {
