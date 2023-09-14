@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
@@ -65,7 +66,7 @@ func autoRenewDynamoCreds(svc **dynamodb.DynamoDB) {
 
 		// Create DynamoDB client
 		*svc = dynamodb.New(dynamoSess)
-
+		// Nice
 	}
 }
 
@@ -206,27 +207,16 @@ func getUser(tablename string, username string, svc *dynamodb.DynamoDB) (User, e
 
 func createUser(tablename string, user User, svc *dynamodb.DynamoDB) error {
 
-	var userMap map[string]string
-	userJson, err := json.Marshal(user)
-	if err != nil {
-		errorMessage := "could not marshal user struct"
-		log.Println(errorMessage)
-		return errors.New(errorMessage)
-	}
+	user.Username = strings.ToLower(user.Username) //Ensure username is all lowercase
+	user.Shoots = make(map[string]Shoot)           //Make sure the property is initialized
+	user.Shoots["placeholder"] = Shoot{}
 
-	err = json.Unmarshal(userJson, &userMap)
-	if err != nil {
-		return fmt.Errorf("error unmarshalling json: %v", err)
-	}
-
-	userMap["username"] = strings.ToLower(userMap["username"]) //Ensure username is all lowercase
-
-	_, err = getUser(tablename, userMap["username"], svc)
+	_, err := getUser(tablename, user.Username, svc)
 	if err == nil {
 		return errors.New("User already exists")
 	}
 
-	av, err := dynamodbattribute.MarshalMap(userMap)
+	av, err := dynamodbattribute.MarshalMap(user)
 	if err != nil {
 		return fmt.Errorf("got error marshalling new user item: %s", err)
 	}
@@ -455,12 +445,42 @@ func StaticHandler(staticFiles map[string][]byte) gin.HandlerFunc {
 
 }
 
+func deletePlaceHolder(svc *dynamodb.DynamoDB, username string, tablename string) error {
+
+	// Define the key to identify the item you want to update
+	key := map[string]*dynamodb.AttributeValue{
+		"username": {
+			S: aws.String(username),
+		},
+	}
+
+	// Define the update expression to set the new property value
+	updateExpression := "REMOVE shoots.placeholder"
+
+	// Configure the update input
+	updateInput := &dynamodb.UpdateItemInput{
+		TableName:        aws.String(tablename),
+		Key:              key,
+		UpdateExpression: aws.String(updateExpression),
+		ReturnValues:     aws.String("UPDATED_NEW"), // If you want to return the updated item
+	}
+
+	// Perform the update operation
+	_, err := svc.UpdateItem(updateInput)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func main() {
 	port := env("PORT")           // Port to listen on
 	region := env("REGION")       // AWS region to be used
 	bucket := env("BUCKET")       // S3 bucket to be referenced
 	tablename := env("TABLENAME") // DynamoDB table to use
 	protocol := strings.ToLower(env("PROTOCOL"))
+	scylla_url := env("SCYLLA_URL")
 	var minutes int64
 	minutes, _ = strconv.ParseInt(env("MINUTES"), 10, 64) // Number of minutes the the presigned urls will be good for
 	staticFiles := cacheStaticFiles()
@@ -484,15 +504,63 @@ func main() {
 	}
 	client := s3.New(s3sess)
 
-	// Initialize a session that the SDK will use to load
-	// credentials from the shared credentials file ~/.aws/credentials
-	// and region from the shared configuration file ~/.aws/config.
-	dynamoSess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	}))
-	// Create DynamoDB client session
-	svc := dynamodb.New(dynamoSess)
-	go autoRenewDynamoCreds(&svc) //Renew client session every 4 minutes to prevent token expiry
+	// If the Scylla url is not used, use AWS
+	// Otherwise connect to Scylla
+	var svc *dynamodb.DynamoDB
+	if scylla_url == "" {
+
+		// Initialize a session that the SDK will use to load
+		// credentials from the shared credentials file ~/.aws/credentials
+		// and region from the shared configuration file ~/.aws/config.
+		dynamoSess := session.Must(session.NewSessionWithOptions(session.Options{
+			SharedConfigState: session.SharedConfigEnable,
+		}))
+		// Create DynamoDB client session
+		svc = dynamodb.New(dynamoSess)
+		go autoRenewDynamoCreds(&svc) // Renew client session every 4 minutes to prevent token expiry
+
+	} else {
+		creds := credentials.NewStaticCredentials("cassandra", "cassandra", "None") //Auth not yet actually working
+		sess, err := session.NewSession(&aws.Config{
+			Region:      aws.String("None"),
+			Endpoint:    aws.String(scylla_url),
+			Credentials: creds,
+		})
+		if err != nil {
+			log.Println(err)
+		}
+		svc = dynamodb.New(sess)
+	}
+
+	//deleteInput := &dynamodb.DeleteTableInput{TableName: &tablename}
+	//svc.DeleteTable(deleteInput)
+
+	createInput := &dynamodb.CreateTableInput{
+		AttributeDefinitions: []*dynamodb.AttributeDefinition{
+			{
+				AttributeName: aws.String("username"),
+				AttributeType: aws.String("S"),
+			},
+		},
+		KeySchema: []*dynamodb.KeySchemaElement{
+			{
+				AttributeName: aws.String("username"),
+				KeyType:       aws.String("HASH"),
+			},
+		},
+		ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
+			ReadCapacityUnits:  aws.Int64(10),
+			WriteCapacityUnits: aws.Int64(10),
+		},
+		TableName: aws.String(tablename),
+	}
+
+	_, err = svc.CreateTable(createInput)
+	if err == nil {
+		fmt.Printf("Created the DB table: %v\n", tablename)
+	} else if !(strings.Contains(err.Error(), "ResourceInUseException: Table")) {
+		log.Fatalf("Could not create DB: %v", err)
+	}
 
 	// Create the Redis client
 	redclient := redis.NewClient(&redis.Options{
@@ -593,6 +661,68 @@ func main() {
 	r.GET("/shoot/:shoot", func(c *gin.Context) {
 		shoot := c.Param("shoot")
 		c.Redirect(http.StatusFound, "/shoot/"+shoot+"/0")
+	})
+
+	r.POST("/shoot/add/:shootName", func(c *gin.Context) {
+
+		auth, username := checkToken(c, redclient)
+		if !auth {
+			c.Redirect(302, "/login")
+			return
+		}
+
+		shootName := c.Param("shootName")
+		body, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			log.Printf("could not read request body: %v", err)
+			abortWithError(http.StatusBadRequest, err, c)
+		}
+
+		// Define the key to identify the item you want to update
+		key := map[string]*dynamodb.AttributeValue{
+			"username": {
+				S: aws.String(username),
+			},
+		}
+
+		// Define the update expression to set the new property value
+		updateExpression := "SET shoots." + shootName + " = :newValue"
+
+		var shoot Shoot
+		json.Unmarshal(body, &shoot)
+		newShoot, err := dynamodbattribute.MarshalMap(shoot)
+		if err != nil {
+			log.Printf("Could not marshal json: %v", err)
+			abortWithError(http.StatusBadRequest, err, c)
+		}
+
+		// Define expression attribute values
+		expressionAttributeValues := map[string]*dynamodb.AttributeValue{
+			":newValue": {
+				M: newShoot,
+			},
+		}
+
+		// Configure the update input
+		updateInput := &dynamodb.UpdateItemInput{
+			TableName:                 aws.String(tablename),
+			Key:                       key,
+			UpdateExpression:          aws.String(updateExpression),
+			ExpressionAttributeValues: expressionAttributeValues,
+			ReturnValues:              aws.String("UPDATED_NEW"), // If you want to return the updated item
+		}
+
+		// Perform the update operation
+		_, err = svc.UpdateItem(updateInput)
+		if err != nil {
+			log.Printf("Could not add shoot: %v", err)
+			abortWithError(http.StatusBadRequest, err, c)
+		}
+		err = deletePlaceHolder(svc, username, tablename)
+		if err != nil {
+			log.Println(err)
+		}
+
 	})
 
 	r.POST("/shoot/:shoot/:page/submitPicks", func(c *gin.Context) {
@@ -709,6 +839,7 @@ func main() {
 			err = fmt.Errorf("could not hash the password %v", err)
 			abortWithError(http.StatusInternalServerError, err, c)
 			return
+
 		}
 		user.Password = string(hash)
 
@@ -741,6 +872,7 @@ func main() {
 		var providedCreds map[string]string
 
 		json.Unmarshal(body, &providedCreds)
+		providedCreds["username"] = strings.ToLower(providedCreds["username"])
 		user, err := getUser(tablename, providedCreds["username"], svc)
 		if err != nil {
 			log.Printf("There was a problem fetching a user from the DB: %v", err)

@@ -64,6 +64,10 @@ window.addEventListener("load", function () {
     // Hide the loading screen once all images are loaded
     const loadingScreen = document.getElementById("loading-screen");
     loadingScreen.style.display = "none";
+
+    var url = window.location.href;
+    url = url.split("/");
+    document.getElementById("page_num").innerHTML = "Page " + String(parseInt(url[url.length - 1]) + 1)
 });
 
 function nextPage() {
