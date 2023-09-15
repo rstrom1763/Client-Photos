@@ -21,11 +21,11 @@ type Thumbnail struct {
 }
 
 type Shoot struct {
-	Files     []string
-	Picks     Picks  `json:"picks"`
-	Prefix    string `json:"prefix"`
-	Date      string `json:"date"`
-	Thumbnail string `json:"thumbnail"`
+	Files     []string `json:"files"`
+	Picks     Picks    `json:"picks"`
+	Prefix    string   `json:"prefix"`
+	Date      string   `json:"date"`
+	Thumbnail string   `json:"thumbnail"`
 }
 
 type Picks struct {
