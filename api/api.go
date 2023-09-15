@@ -113,29 +113,25 @@ func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) ([]T
 
 	var final []Thumbnail
 
-	num := 10
-	count := 0
 	// iterate through objects keys from the bucket + prefix
 	for _, key := range keys {
-		if count < num {
-			// Create the request object using the key + bucket
-			req, _ := client.GetObjectRequest(&s3.GetObjectInput{
-				Bucket: aws.String(bucket),
-				Key:    aws.String(key),
-			})
 
-			// Generate presigned url for x minutes using the request object
-			urlStr, err := req.Presign(time.Duration(minutes) * time.Minute)
-			if err != nil {
-				return []Thumbnail{}, nil
-			}
+		// Create the request object using the key + bucket
+		req, _ := client.GetObjectRequest(&s3.GetObjectInput{
+			Bucket: aws.String(bucket),
+			Key:    aws.String(key),
+		})
 
-			// Append the url to final for return
-			key = key[strings.LastIndex(key, "/")+1 : strings.LastIndex(key, "_thumb")]
-			final = append(final, Thumbnail{Key: key, Url: urlStr})
-
+		// Generate presigned url for x minutes using the request object
+		urlStr, err := req.Presign(time.Duration(minutes) * time.Minute)
+		if err != nil {
+			return []Thumbnail{}, nil
 		}
-		count += 1
+
+		// Append the url to final for return
+		key = key[strings.LastIndex(key, "/")+1 : strings.LastIndex(key, "_thumb")]
+		final = append(final, Thumbnail{Key: key, Url: urlStr})
+
 	}
 
 	return final, nil
@@ -484,6 +480,7 @@ func main() {
 	var minutes int64
 	minutes, _ = strconv.ParseInt(env("MINUTES"), 10, 64) // Number of minutes the the presigned urls will be good for
 	staticFiles := cacheStaticFiles()
+	maxPics, _ := strconv.Atoi(env("MAXPICS"))
 
 	//Ensure valid protocol env entry
 	if protocol != "http" && protocol != "https" {
@@ -640,7 +637,7 @@ func main() {
 		}
 
 		prefix := data.Shoots[shoot].Prefix
-		objects, err := getObjects(client, region, bucket, prefix, page, 10) // Get the prefix objects
+		objects, err := getObjects(client, region, bucket, prefix, page, maxPics) // Get the prefix objects
 		if err != nil {
 			//log.Print(err.Error())
 			abortWithError(http.StatusBadRequest, err, c)
