@@ -478,7 +478,7 @@ func main() {
 	protocol := strings.ToLower(env("PROTOCOL"))
 	scylla_url := env("SCYLLA_URL")
 	var minutes int64
-	minutes, _ = strconv.ParseInt(env("MINUTES"), 10, 64) // Number of minutes the the presigned urls will be good for
+	minutes, _ = strconv.ParseInt(env("MINUTES"), 10, 64) // Number of minutes the presigned urls will be good for
 	staticFiles := cacheStaticFiles()
 	maxPics, _ := strconv.Atoi(env("MAXPICS"))
 
