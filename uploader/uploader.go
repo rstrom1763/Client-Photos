@@ -64,6 +64,8 @@ func createThumbnail(src string, dst string, height int, width int, quality int,
 		orientation = "landscape"
 	} else if height1 > width1 {
 		orientation = "portrait"
+	} else if height1 == width1 {
+		orientation = "square"
 	}
 
 	// Open the image
@@ -77,6 +79,8 @@ func createThumbnail(src string, dst string, height int, width int, quality int,
 		thumbnail = imaging.Resize(orig, height, width, imaging.Lanczos)
 	} else if orientation == "portrait" {
 		thumbnail = imaging.Resize(orig, width, height, imaging.Lanczos)
+	} else if orientation == "square" {
+		thumbnail = imaging.Resize(orig, height, height, imaging.Lanczos)
 	}
 
 	// Save the resulting image as JPEG.
