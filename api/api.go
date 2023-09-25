@@ -47,10 +47,10 @@ func env(key string) string {
 	return os.Getenv(key)
 }
 
-// This function renews the dynamoDB client on a 4 minute interval
+// This function renews the dynamoDB client on a 4-minute interval
 // This prevents security token expiration errors
 // Gets put into a goroutine to run in the background
-func autoRenewDynamoCreds(svc **dynamodb.DynamoDB) {
+func autoRenewDynamoCredentials(svc **dynamodb.DynamoDB) {
 
 	for {
 
@@ -75,12 +75,12 @@ func autoRenewDynamoCreds(svc **dynamodb.DynamoDB) {
 // region is a string annotating the AWS region to be used. Example: "us-east-2"
 // bucket is a string annotating the S3 bucket to be used. Example "ryans-test-bucket675"
 // prefix is a string annotating the prefix within the bucket to be targeting
-// maxkeys is an int64 to set the max number of objects to return
-func getObjects(client *s3.S3, region string, bucket string, prefix string, page int, page_size int) ([]string, error) {
+// maxKeys is an int64 to set the max number of objects to return
+func getObjects(client *s3.S3, region string, bucket string, prefix string, page int, pageSize int) ([]string, error) {
 
 	var final []string // Holds the final value for the return
-	lower_bound := page * page_size
-	upper_bound := (page * page_size) + page_size
+	lowerBound := page * pageSize
+	upperBound := (page * pageSize) + pageSize
 
 	// List objects in the bucket + prefix
 	objects, err := client.ListObjects(&s3.ListObjectsInput{
@@ -95,7 +95,7 @@ func getObjects(client *s3.S3, region string, bucket string, prefix string, page
 	// Append the object keys to a slice to return
 	for i, key := range objects.Contents {
 		if *key.Size > 0 {
-			if i >= lower_bound && i < upper_bound {
+			if i >= lowerBound && i < upperBound {
 				final = append(final, *key.Key)
 			}
 		}
@@ -122,7 +122,7 @@ func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) ([]T
 			Key:    aws.String(key),
 		})
 
-		// Generate presigned url for x minutes using the request object
+		// Generate pre-signed url for x minutes using the request object
 		urlStr, err := req.Presign(time.Duration(minutes) * time.Minute)
 		if err != nil {
 			return []Thumbnail{}, nil
@@ -137,9 +137,9 @@ func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) ([]T
 	return final, nil
 }
 
-// Takes in a string slice of presigned urls and generates the html page to send to the user
+// Takes in a string slice of pre-signed urls and generates the html page to send to the user
 // Returns the HTML as a string
-// keys is a slice of the presigned urls to be used in the gallery
+// keys is a slice of the pre-signed urls to be used in the gallery
 func createHTML(keys []Thumbnail) (string, error) {
 
 	tmpl, err := template.ParseFiles("./static/html/gallery.html")
@@ -175,9 +175,9 @@ func generateSessionToken() (string, error) {
 	return token, nil
 }
 
-func getUser(tablename string, username string, svc *dynamodb.DynamoDB) (User, error) {
+func getUser(tableName string, username string, svc *dynamodb.DynamoDB) (User, error) {
 	result, err := svc.GetItem(&dynamodb.GetItemInput{
-		TableName: aws.String(tablename),
+		TableName: aws.String(tableName),
 		Key: map[string]*dynamodb.AttributeValue{
 			"username": {
 				S: aws.String(username),
@@ -195,21 +195,21 @@ func getUser(tablename string, username string, svc *dynamodb.DynamoDB) (User, e
 	}
 
 	if final.Username == "" {
-		return User{}, errors.New("User does not exist")
+		return User{}, errors.New("user does not exist")
 	}
 
 	return final, nil
 }
 
-func createUser(tablename string, user User, svc *dynamodb.DynamoDB) error {
+func createUser(tableName string, user User, svc *dynamodb.DynamoDB) error {
 
 	user.Username = strings.ToLower(user.Username) //Ensure username is all lowercase
 	user.Shoots = make(map[string]Shoot)           //Make sure the property is initialized
 	user.Shoots["placeholder"] = Shoot{}
 
-	_, err := getUser(tablename, user.Username, svc)
+	_, err := getUser(tableName, user.Username, svc)
 	if err == nil {
-		return errors.New("User already exists")
+		return errors.New("user already exists")
 	}
 
 	av, err := dynamodbattribute.MarshalMap(user)
@@ -219,7 +219,7 @@ func createUser(tablename string, user User, svc *dynamodb.DynamoDB) error {
 
 	input := &dynamodb.PutItemInput{
 		Item:      av,
-		TableName: aws.String(tablename),
+		TableName: aws.String(tableName),
 	}
 
 	_, err = svc.PutItem(input)
@@ -240,7 +240,7 @@ func setToken(r *redis.Client, username string, token string) {
 // Returns error code and ends handler function for gin routes
 func abortWithError(statusCode int, err error, c *gin.Context) {
 
-	c.AbortWithError(statusCode, err)
+	_ = c.AbortWithError(statusCode, err)
 	c.JSON(statusCode, gin.H{"status": fmt.Sprint(err)})
 }
 
@@ -254,7 +254,7 @@ func generateSSL() {
 	}
 
 	// Generate a self-signed certificate
-	template := x509.Certificate{
+	certTemplate := x509.Certificate{
 		SerialNumber:          big.NewInt(1),
 		Subject:               pkix.Name{CommonName: "localhost"},
 		NotBefore:             time.Now(),
@@ -266,7 +266,7 @@ func generateSSL() {
 		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
 	}
 
-	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &privateKey.PublicKey, privateKey)
+	derBytes, err := x509.CreateCertificate(rand.Reader, &certTemplate, &certTemplate, &privateKey.PublicKey, privateKey)
 	if err != nil {
 		log.Fatal("Error creating certificate:", err)
 		return
@@ -280,16 +280,24 @@ func generateSSL() {
 	}
 	defer keyOut.Close()
 
-	pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)})
+	err = pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)})
+	if err != nil {
+		log.Fatal("Error creating certificate file: ", err)
+		return
+	}
 
 	certOut, err := os.Create("./cert.pem")
 	if err != nil {
-		log.Fatal("Error creating certificate file:", err)
+		log.Fatal("Error creating certificate file: ", err)
 		return
 	}
 	defer certOut.Close()
 
-	pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	err = pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	if err != nil {
+		log.Fatal("Error creating certificate file: ", err)
+		return
+	}
 
 	fmt.Println("TLS certificate and private key generated successfully.")
 }
@@ -305,8 +313,8 @@ func fileExists(filename string) bool {
 	return false // Error occurred (e.g., permission denied)
 }
 
-func resetTokenTimeout(redclient *redis.Client, username string, redisTimeout int) {
-	_ = redclient.Expire(username, time.Minute*time.Duration(redisTimeout))
+func resetTokenTimeout(redClient *redis.Client, username string, redisTimeout int) {
+	_ = redClient.Expire(username, time.Minute*time.Duration(redisTimeout))
 }
 
 func verifyPassword(hashedPassword string, inputPassword string, salt string) bool {
@@ -316,7 +324,7 @@ func verifyPassword(hashedPassword string, inputPassword string, salt string) bo
 	return err == nil
 }
 
-func checkToken(c *gin.Context, redclient *redis.Client) (bool, string) {
+func checkToken(c *gin.Context, redClient *redis.Client) (bool, string) {
 
 	cookie, err := c.Cookie("authToken")
 	if err != nil {
@@ -331,12 +339,12 @@ func checkToken(c *gin.Context, redclient *redis.Client) (bool, string) {
 		return false, ""
 	}
 
-	val, err := redclient.Get(cookieValue["username"]).Result()
+	val, err := redClient.Get(cookieValue["username"]).Result()
 	if err != nil {
 		return false, ""
 	} else {
 		if val == cookieValue["token"] {
-			resetTokenTimeout(redclient, cookieValue["username"], 30)
+			resetTokenTimeout(redClient, cookieValue["username"], 30)
 			return true, cookieValue["username"]
 		} else {
 			return false, ""
@@ -417,8 +425,8 @@ func StaticHandler(staticFiles map[string][]byte) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		url := fmt.Sprint(c.Request.URL)
-		url_arr := strings.Split(string(url), "/")
-		file := url_arr[len(url_arr)-1]
+		urlArr := strings.Split(string(url), "/")
+		file := urlArr[len(urlArr)-1]
 
 		if strings.Contains(file, ".") { // Check to see if the url potentially has a file
 			data, exists := staticFiles[file] // See if the file is cached, if so get it's bytes from the map
@@ -474,9 +482,9 @@ func main() {
 	port := env("PORT")           // Port to listen on
 	region := env("REGION")       // AWS region to be used
 	bucket := env("BUCKET")       // S3 bucket to be referenced
-	tablename := env("TABLENAME") // DynamoDB table to use
+	tableName := env("TABLENAME") // DynamoDB table to use
 	protocol := strings.ToLower(env("PROTOCOL"))
-	scylla_url := env("SCYLLA_URL")
+	scyllaUrl := env("SCYLLA_URL")
 	var minutes int64
 	minutes, _ = strconv.ParseInt(env("MINUTES"), 10, 64) // Number of minutes the presigned urls will be good for
 	staticFiles := cacheStaticFiles()
@@ -504,7 +512,7 @@ func main() {
 	// If the Scylla url is not used, use AWS
 	// Otherwise connect to Scylla
 	var svc *dynamodb.DynamoDB
-	if scylla_url == "" {
+	if scyllaUrl == "" {
 
 		// Initialize a session that the SDK will use to load
 		// credentials from the shared credentials file ~/.aws/credentials
@@ -514,13 +522,13 @@ func main() {
 		}))
 		// Create DynamoDB client session
 		svc = dynamodb.New(dynamoSess)
-		go autoRenewDynamoCreds(&svc) // Renew client session every 4 minutes to prevent token expiry
+		go autoRenewDynamoCredentials(&svc) // Renew client session every 4 minutes to prevent token expiry
 
 	} else {
 		creds := credentials.NewStaticCredentials("cassandra", "cassandra", "None") //Auth not yet actually working
 		sess, err := session.NewSession(&aws.Config{
 			Region:      aws.String("None"),
-			Endpoint:    aws.String(scylla_url),
+			Endpoint:    aws.String(scyllaUrl),
 			Credentials: creds,
 		})
 		if err != nil {
@@ -529,7 +537,7 @@ func main() {
 		svc = dynamodb.New(sess)
 	}
 
-	//deleteInput := &dynamodb.DeleteTableInput{TableName: &tablename}
+	//deleteInput := &dynamodb.DeleteTableInput{TableName: &tableName}
 	//svc.DeleteTable(deleteInput)
 
 	createInput := &dynamodb.CreateTableInput{
@@ -549,18 +557,18 @@ func main() {
 			ReadCapacityUnits:  aws.Int64(10),
 			WriteCapacityUnits: aws.Int64(10),
 		},
-		TableName: aws.String(tablename),
+		TableName: aws.String(tableName),
 	}
 
 	_, err = svc.CreateTable(createInput)
 	if err == nil {
-		fmt.Printf("Created the DB table: %v\n", tablename)
+		fmt.Printf("Created the DB table: %v\n", tableName)
 	} else if !(strings.Contains(err.Error(), "ResourceInUseException: Table")) {
 		log.Fatalf("Could not create DB: %v", err)
 	}
 
 	// Create the Redis client
-	redclient := redis.NewClient(&redis.Options{
+	redClient := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "",
 		DB:       0,
@@ -568,7 +576,7 @@ func main() {
 
 	// Test the Redis client connection
 	// Exit program if Redis is unavailable
-	err = redclient.Ping().Err()
+	err = redClient.Ping().Err()
 	if err != nil {
 		log.Fatalf("Could not connect to Redis: %v", err)
 	}
@@ -591,7 +599,7 @@ func main() {
 	// Route to request either login or home page for the user
 	r.GET("/", func(c *gin.Context) {
 
-		auth, _ := checkToken(c, redclient)
+		auth, _ := checkToken(c, redClient)
 
 		if !auth {
 			c.Redirect(302, "/login")
@@ -608,7 +616,7 @@ func main() {
 
 	r.GET("/login", func(c *gin.Context) {
 
-		auth, _ := checkToken(c, redclient)
+		auth, _ := checkToken(c, redClient)
 
 		if auth {
 			c.Redirect(302, "/home")
@@ -621,7 +629,7 @@ func main() {
 
 	r.GET("/shoot/:shoot/:page", func(c *gin.Context) {
 
-		auth, username := checkToken(c, redclient)
+		auth, username := checkToken(c, redClient)
 		if !auth {
 			c.Redirect(302, "/login")
 			return
@@ -630,7 +638,7 @@ func main() {
 		page, _ := strconv.Atoi(c.Param("page"))
 		shoot := c.Param("shoot")
 
-		data, err := getUser(tablename, username, svc)
+		data, err := getUser(tableName, username, svc)
 		if err != nil {
 			log.Printf("could not get shoot data: %v", err)
 			abortWithError(http.StatusNotFound, err, c)
@@ -662,7 +670,7 @@ func main() {
 
 	r.POST("/shoot/add/:shootName", func(c *gin.Context) {
 
-		auth, username := checkToken(c, redclient)
+		auth, username := checkToken(c, redClient)
 		if !auth {
 			c.Redirect(302, "/login")
 			return
@@ -686,7 +694,7 @@ func main() {
 		updateExpression := "SET shoots." + shootName + " = :newValue"
 
 		var shoot Shoot
-		json.Unmarshal(body, &shoot)
+		_ = json.Unmarshal(body, &shoot)
 		newShoot, err := dynamodbattribute.MarshalMap(shoot)
 		if err != nil {
 			log.Printf("Could not marshal json: %v", err)
@@ -702,7 +710,7 @@ func main() {
 
 		// Configure the update input
 		updateInput := &dynamodb.UpdateItemInput{
-			TableName:                 aws.String(tablename),
+			TableName:                 aws.String(tableName),
 			Key:                       key,
 			UpdateExpression:          aws.String(updateExpression),
 			ExpressionAttributeValues: expressionAttributeValues,
@@ -715,7 +723,7 @@ func main() {
 			log.Printf("Could not add shoot: %v", err)
 			abortWithError(http.StatusBadRequest, err, c)
 		}
-		err = deletePlaceHolder(svc, username, tablename)
+		err = deletePlaceHolder(svc, username, tableName)
 		if err != nil {
 			log.Println(err)
 		}
@@ -724,7 +732,7 @@ func main() {
 
 	r.POST("/shoot/:shoot/:page/submitPicks", func(c *gin.Context) {
 
-		auth, username := checkToken(c, redclient)
+		auth, username := checkToken(c, redClient)
 		if !auth {
 			c.Redirect(302, "/login")
 			return
@@ -738,7 +746,7 @@ func main() {
 			abortWithError(http.StatusBadRequest, err, c)
 		}
 
-		user, err := getUser(tablename, username, svc)
+		user, err := getUser(tableName, username, svc)
 		if err != nil {
 			log.Printf("could not get user: %v : %v", username, err)
 			abortWithError(http.StatusNotFound, err, c)
@@ -751,11 +759,11 @@ func main() {
 			abortWithError(http.StatusInternalServerError, err, c)
 		}
 
-		modifShoot := user.Shoots[shoot]
-		modifShoot.Picks = picks
-		user.Shoots[shoot] = modifShoot
+		modifiedShoot := user.Shoots[shoot]
+		modifiedShoot.Picks = picks
+		user.Shoots[shoot] = modifiedShoot
 
-		err = updatePicks(tablename, username, shoot, picks, svc)
+		err = updatePicks(tableName, username, shoot, picks, svc)
 		if err != nil {
 			fmt.Printf("could not edit picks: %v", err)
 			abortWithError(http.StatusInternalServerError, err, c)
@@ -777,14 +785,14 @@ func main() {
 		shoot := c.Param("shoot")
 		shoot = strings.ToLower(shoot)
 
-		auth, username := checkToken(c, redclient)
+		auth, username := checkToken(c, redClient)
 
 		if !auth {
 			c.Redirect(http.StatusFound, "/login")
 			return
 		}
 
-		data, err := getUser(tablename, username, svc)
+		data, err := getUser(tableName, username, svc)
 		if err != nil {
 			log.Printf("could not get shoot data: %v", err)
 		}
@@ -801,7 +809,7 @@ func main() {
 	// Get a user from the DB
 	r.GET("/user/:username", func(c *gin.Context) {
 		username := c.Param("username")
-		result, err := getUser(tablename, username, svc)
+		result, err := getUser(tableName, username, svc)
 		if err != nil {
 			abortWithError(404, err, c)
 			return
@@ -825,7 +833,7 @@ func main() {
 
 		// Unmarshal the body json into a user struct
 		var user User
-		json.Unmarshal(body, &user)
+		_ = json.Unmarshal(body, &user)
 		user.Salt, _ = generateSalt(32)
 		user.Password = user.Password + user.Salt
 
@@ -841,7 +849,7 @@ func main() {
 		user.Password = string(hash)
 
 		// Create the user in DynamoDB
-		err = createUser(tablename, user, svc)
+		err = createUser(tableName, user, svc)
 		if err != nil {
 			abortWithError(http.StatusInternalServerError, err, c)
 			return
@@ -866,25 +874,25 @@ func main() {
 			return
 		}
 
-		var providedCreds map[string]string
+		var providedCredentials map[string]string
 
-		json.Unmarshal(body, &providedCreds)
-		providedCreds["username"] = strings.ToLower(providedCreds["username"])
-		user, err := getUser(tablename, providedCreds["username"], svc)
+		_ = json.Unmarshal(body, &providedCredentials)
+		providedCredentials["username"] = strings.ToLower(providedCredentials["username"])
+		user, err := getUser(tableName, providedCredentials["username"], svc)
 		if err != nil {
 			log.Printf("There was a problem fetching a user from the DB: %v", err)
 			abortWithError(http.StatusNotFound, err, c)
 			return
 		}
 
-		authbool := verifyPassword(user.Password, providedCreds["password"], user.Salt)
+		authBool := verifyPassword(user.Password, providedCredentials["password"], user.Salt)
 
-		if authbool {
+		if authBool {
 			token, err := generateSessionToken()
 			if err != nil {
-				log.Printf("Could not generate token for %v: %v", providedCreds["username"], err)
+				log.Printf("Could not generate token for %v: %v", providedCredentials["username"], err)
 			}
-			setToken(redclient, providedCreds["username"], token)
+			setToken(redClient, providedCredentials["username"], token)
 
 			authJson := map[string]string{"username": user.Username, "token": token}
 			authJsonBytes, err := json.Marshal(authJson)
@@ -902,8 +910,8 @@ func main() {
 			weekInSeconds := 604800
 			c.SetCookie(authCookie.Name, authCookie.Value, weekInSeconds, "/", c.Request.Host, true, true)
 
-			c.JSON(http.StatusAccepted, gin.H{"accepted": authbool, "token": token})
-		} else if !authbool {
+			c.JSON(http.StatusAccepted, gin.H{"accepted": authBool, "token": token})
+		} else if !authBool {
 			c.Data(http.StatusNotFound, "text/plain", []byte("incorrect username or password"))
 		}
 
