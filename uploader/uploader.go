@@ -15,7 +15,7 @@ import (
 	"github.com/disintegration/imaging"
 )
 
-var wg sync.WaitGroup //Create the waitgroup object
+var wg sync.WaitGroup //Create the wait group object
 
 // Takes in the file path of an image and returns the width and height
 // Used to determine whether an image is portrait or landscape orientation
@@ -29,13 +29,13 @@ func getImageDimension(imagePath string) (int, int) {
 	}
 
 	// Decode the image into an image object
-	image, _, err := image.DecodeConfig(file)
+	img, _, err := image.DecodeConfig(file)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Return the width and height of the image from the image object
-	return image.Width, image.Height
+	// Return the width and height of the img from the img object
+	return img.Width, img.Height
 }
 
 // Generates a thumbnail of a JPG file. Takes in the src path of the file and then saves it to the dst path
@@ -44,9 +44,9 @@ func getImageDimension(imagePath string) (int, int) {
 // height is the desired height for the jpg to be resized to
 // width is the desired width for the jpg to be resized to
 // quality is the percentage of quality the jpg should be taken down to. Should be between 1 and 99. Example: 80
-func createThumbnail(src string, dst string, height int, width int, quality int, respchan chan string) {
+func createThumbnail(src string, dst string, height int, width int, quality int, respChan chan string) {
 
-	defer wg.Done() //Schedule with the waitgroup
+	defer wg.Done() //Schedule with the wait group
 
 	// Holds the resized jpg
 	var thumbnail image.Image
@@ -88,20 +88,20 @@ func createThumbnail(src string, dst string, height int, width int, quality int,
 	if err != nil {
 		log.Fatalf("Failed to save image: %v", err)
 	}
-	respchan <- "done"
+	respChan <- "done"
 }
 
-// Creates thumbnails of all of the jpg files in a directory
+// Creates thumbnails of all the jpg files in a directory
 // Saves them as <filename>_thumb.jpg
 // dir is the directory to target
 // height is the desired height for the jpg to be resized to
 // width is the desired width for the jpg to be resized to
 // quality is the percentage of quality the jpg should be taken down to. Should be between 1 and 99. Example: 80
-// maxroutines is the max number of concurrent goroutines you would like at a time. Higher = higher CPU and Memory usage
-func thumbnailDir(dir string, height int, width int, quality int, maxroutines int, respchan chan string) {
+// maxRoutines is the max number of concurrent goroutines you would like at a time. Higher = higher CPU and Memory usage
+func thumbnailDir(dir string, height int, width int, quality int, maxRoutines int, respChan chan string) {
 
-	routines := 0            // Number of goroutines
-	start_time := time.Now() // Timer start time
+	routines := 0           // Number of goroutines
+	startTime := time.Now() // Timer start time
 
 	// Get all files in the provided directory
 	// Store it in variable photos
@@ -129,18 +129,18 @@ func thumbnailDir(dir string, height int, width int, quality int, maxroutines in
 				// Only execute on files that are jpg
 				if strings.ToLower(filepath.Ext(photoPath)) == ".jpg" || strings.ToLower(filepath.Ext(photoPath)) == ".jpeg" {
 
-					wg.Add(1)                                                                      // Add a Go routine to the waitlist
+					wg.Add(1)                                                                      // Add a Go routine to the wait list
 					routines += 1                                                                  // Add one to the number of active goroutines
-					go createThumbnail(photoPath, thumbnailName, height, width, quality, respchan) // Start goroutine to create a thumbnail of the jpg
+					go createThumbnail(photoPath, thumbnailName, height, width, quality, respChan) // Start goroutine to create a thumbnail of the jpg
 
 					// If the number of active goroutines reaches the max desired concurrent goroutines, wait for them to finish
 					// Reset counter to zero then continue
-					if routines >= maxroutines {
+					if routines >= maxRoutines {
 						for {
 
-							chanlen := len(respchan)
-							if chanlen > 0 {
-								fmt.Sprint(<-respchan)
+							chanLen := len(respChan)
+							if chanLen > 0 {
+								_ = fmt.Sprint(<-respChan)
 								routines -= 1
 								break
 							}
@@ -151,24 +151,24 @@ func thumbnailDir(dir string, height int, width int, quality int, maxroutines in
 			}
 		}
 	}
-	wg.Wait()                          // Wait for all the goroutines to finish
-	duration := time.Since(start_time) // Calculate execution duration
-	fmt.Println(duration)              // Print execution duration
+	wg.Wait()                         // Wait for all the goroutines to finish
+	duration := time.Since(startTime) // Calculate execution duration
+	fmt.Println(duration)             // Print execution duration
 }
 
 func main() {
 
 	args := os.Args
-	good_arg_len := 6
-	respchan := make(chan string, 100)
-	defer close(respchan)
+	goodArgLen := 6
+	respChan := make(chan string, 100)
+	defer close(respChan)
 
-	if len(args) < good_arg_len || len(args) > good_arg_len {
-		log.Fatal("Usage: dir, height, width, quality, maxroutines")
+	if len(args) < goodArgLen || len(args) > goodArgLen {
+		log.Fatal("Usage: dir, height, width, quality, maxRoutines")
 	}
 	height, _ := strconv.Atoi(args[2])
 	width, _ := strconv.Atoi(args[3])
 	quality, _ := strconv.Atoi(args[4])
-	maxroutines, _ := strconv.Atoi(args[5])
-	thumbnailDir(args[1], height, width, quality, maxroutines, respchan)
+	maxRoutines, _ := strconv.Atoi(args[5])
+	thumbnailDir(args[1], height, width, quality, maxRoutines, respChan)
 }

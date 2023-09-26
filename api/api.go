@@ -650,7 +650,7 @@ func main() {
 			//log.Print(err.Error())
 			abortWithError(http.StatusBadRequest, err, c)
 		}
-		urls, err := createUrls(client, bucket, objects, minutes) // Generate the presigned urls
+		urls, err := createUrls(client, bucket, objects, minutes) // Generate the pre-signed urls
 		if err != nil {
 			//log.Print(err.Error())
 			abortWithError(http.StatusBadRequest, err, c)
