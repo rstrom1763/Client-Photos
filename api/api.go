@@ -388,6 +388,7 @@ func updatePicks(tableName string, username string, shootName string, newValue P
 	return err
 }
 
+// Used to load the static files into memory
 func cacheStaticFiles() map[string][]byte {
 
 	staticFiles := make(map[string][]byte)
@@ -730,6 +731,7 @@ func main() {
 
 	})
 
+	// Called when the user sends their shoot picks in via the front end
 	r.POST("/shoot/:shoot/:page/submitPicks", func(c *gin.Context) {
 
 		auth, username := checkToken(c, redClient)
@@ -775,11 +777,13 @@ func main() {
 
 	})
 
+	// Used when a user is creating an account
 	r.GET("/signup", func(c *gin.Context) {
 		html, _ := os.ReadFile("./static/html/signup.html")
 		c.Data(http.StatusOK, "text/html", html)
 	})
 
+	// Returns the picks from a user's shoot
 	r.GET("/getSelections/:shoot", func(c *gin.Context) {
 
 		shoot := c.Param("shoot")
@@ -807,6 +811,7 @@ func main() {
 	})
 
 	// Get a user from the DB
+	// Only for testing. Must be removed before production use
 	r.GET("/user/:username", func(c *gin.Context) {
 		username := c.Param("username")
 		result, err := getUser(tableName, username, svc)
@@ -817,6 +822,7 @@ func main() {
 		c.JSON(http.StatusOK, result)
 	})
 
+	// Creates a new user in the database
 	r.POST("/createUser", func(c *gin.Context) {
 
 		// Read the request body into body variable
@@ -860,6 +866,8 @@ func main() {
 		})
 	})
 
+	// User sign in. Sends an auth token cookie to the front end
+	// Also sends a json with the auth token
 	r.POST("/signin", func(c *gin.Context) {
 
 		// Read the request body into body variable
