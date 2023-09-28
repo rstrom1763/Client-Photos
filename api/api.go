@@ -103,12 +103,12 @@ func getObjects(client *s3.S3, region string, bucket string, prefix string, page
 	return final, nil
 }
 
-// Takes list of objects in the S3 prefix and creates presigned urls for them
+// Takes list of objects in the S3 prefix and creates pre-signed urls for them
 // Returns a string slice containing the urls
 // client is the S3 client object. Used to connect to the S3 service
 // bucket is a string annotating the S3 bucket to be used. Example "ryans-test-bucket675"
 // keys is a slice of the object keys in an S3 bucket prefix
-// minutes is the number of minutes the presigned urls should be good for
+// minutes is the number of minutes the pre-signed urls should be good for
 func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) ([]Thumbnail, error) {
 
 	var final []Thumbnail
@@ -450,7 +450,7 @@ func StaticHandler(staticFiles map[string][]byte) gin.HandlerFunc {
 
 }
 
-func deletePlaceHolder(svc *dynamodb.DynamoDB, username string, tablename string) error {
+func deletePlaceHolder(svc *dynamodb.DynamoDB, username string, tableName string) error {
 
 	// Define the key to identify the item you want to update
 	key := map[string]*dynamodb.AttributeValue{
@@ -464,7 +464,7 @@ func deletePlaceHolder(svc *dynamodb.DynamoDB, username string, tablename string
 
 	// Configure the update input
 	updateInput := &dynamodb.UpdateItemInput{
-		TableName:        aws.String(tablename),
+		TableName:        aws.String(tableName),
 		Key:              key,
 		UpdateExpression: aws.String(updateExpression),
 		ReturnValues:     aws.String("UPDATED_NEW"), // If you want to return the updated item
@@ -487,7 +487,7 @@ func main() {
 	protocol := strings.ToLower(env("PROTOCOL"))
 	scyllaUrl := env("SCYLLA_URL")
 	var minutes int64
-	minutes, _ = strconv.ParseInt(env("MINUTES"), 10, 64) // Number of minutes the presigned urls will be good for
+	minutes, _ = strconv.ParseInt(env("MINUTES"), 10, 64) // Number of minutes the pre-signed urls will be good for
 	staticFiles := cacheStaticFiles()
 	maxPics, _ := strconv.Atoi(env("MAXPICS"))
 
@@ -526,11 +526,11 @@ func main() {
 		go autoRenewDynamoCredentials(&svc) // Renew client session every 4 minutes to prevent token expiry
 
 	} else {
-		creds := credentials.NewStaticCredentials("cassandra", "cassandra", "None") //Auth not yet actually working
+		scyllaCredentials := credentials.NewStaticCredentials("cassandra", "cassandra", "None") //Auth not yet actually working
 		sess, err := session.NewSession(&aws.Config{
 			Region:      aws.String("None"),
 			Endpoint:    aws.String(scyllaUrl),
-			Credentials: creds,
+			Credentials: scyllaCredentials,
 		})
 		if err != nil {
 			log.Println(err)
