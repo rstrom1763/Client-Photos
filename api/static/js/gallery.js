@@ -14,9 +14,10 @@ function markImage(id) {
         selected_counter++
         document.getElementById("counter").innerHTML = selected_counter + " Items Selected"
     }
+    document.getElementById("save_status").innerHTML = ""
 }
 
-function submit() {
+function save() {
     var pics = {
         picks: [],
         count: 0
@@ -48,7 +49,7 @@ function submit() {
             console.log(xhr.status);
             console.log(xhr.responseText);
             if (xhr.status === 200) {
-                alert("Your selections have been submitted")
+                document.getElementById("save_status").innerHTML = "Saved!"
             } else {
                 alert("Something went wrong submitting your selections")
             }
@@ -87,3 +88,4 @@ function previousPage() {
         window.location.href = url.join("/")
     }
 }
+
