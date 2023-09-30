@@ -669,6 +669,59 @@ func main() {
 		c.Redirect(http.StatusFound, "/shoot/"+shoot+"/0")
 	})
 
+	r.GET("/:shoot/getPicks", func(c *gin.Context) {
+
+		shootName := c.Param("shoot")
+
+		auth, username := checkToken(c, redClient)
+		if !auth {
+			c.Redirect(302, "/login")
+			return
+		}
+
+		// Create an Item struct to hold the retrieved data
+		var picks Picks
+
+		key := map[string]*dynamodb.AttributeValue{
+			"username": {
+				S: aws.String(username),
+			},
+		}
+
+		// Define which attribute(s) you want to retrieve
+		projectionExpression := fmt.Sprintf("shoots.%v.picks", shootName)
+
+		// Create a GetItemInput object
+		input := &dynamodb.GetItemInput{
+			TableName:            aws.String(tableName),
+			Key:                  key,
+			ProjectionExpression: aws.String(projectionExpression),
+		}
+
+		// Perform the GetItem operation
+		result, err := svc.GetItem(input)
+		if err != nil {
+			fmt.Println("Error getting item:", err)
+			return
+		}
+
+		// Check if the item was found
+		if result.Item != nil {
+			// Unmarshal the DynamoDB item into the Item struct
+			err := dynamodbattribute.UnmarshalMap(result.Item["shoots"].M[shootName].M["picks"].M, &picks)
+			if err != nil {
+				fmt.Println("Error unmarshalling item:", err)
+				return
+			}
+		} else {
+			fmt.Println("Item not found")
+		}
+
+		picksJSON, _ := json.Marshal(picks)
+
+		c.Data(http.StatusOK, "application/json", picksJSON)
+	})
+
 	r.POST("/shoot/add/:shootName", func(c *gin.Context) {
 
 		auth, username := checkToken(c, redClient)
