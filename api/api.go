@@ -669,7 +669,7 @@ func main() {
 		c.Redirect(http.StatusFound, "/shoot/"+shoot+"/0")
 	})
 
-	r.GET("/:shoot/getPicks", func(c *gin.Context) {
+	r.GET("/shoot/:shoot/getPicks", func(c *gin.Context) {
 
 		shootName := c.Param("shoot")
 

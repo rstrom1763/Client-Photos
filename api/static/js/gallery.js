@@ -20,7 +20,7 @@ function createSecureCookie(name, value, expirationDays, path = "/", domain = ""
 function get_picks(url,shoot,auth){
 
     let xhr = new XMLHttpRequest();
-    xhr.open("GET", url + "/getPicks");
+    xhr.open("GET", url);
     xhr.setRequestHeader("Content-Type", "application/json");
 
     xhr.onreadystatechange = function () {
@@ -36,7 +36,7 @@ function get_picks(url,shoot,auth){
             }
         }
     };
-    return "error"
+    xhr.send();
 }
 
 
@@ -107,11 +107,17 @@ window.addEventListener("load", function () {
     loadingScreen.style.display = "none";
 
     let url = window.location.href;
+    url = url.split("/");
+    console.log(url)
+    url[5] = String("getPicks")
 
+    console.log(url)
+    url = url.join("/")
     let picks = get_picks(url)
+    console.log(picks)
     createSecureCookie("picks",picks,5)
-    console.log("Test")
 
+    url = window.location.href;
 
     url = url.split("/");
     document.getElementById("page_num").innerHTML = "Page " + String(parseInt(url[url.length - 1]) + 1)
