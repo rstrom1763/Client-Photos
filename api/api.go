@@ -242,6 +242,7 @@ func abortWithError(statusCode int, err error, c *gin.Context) {
 
 	_ = c.AbortWithError(statusCode, err)
 	c.JSON(statusCode, gin.H{"status": fmt.Sprint(err)})
+
 }
 
 func generateSSL() {
@@ -646,19 +647,25 @@ func main() {
 		}
 
 		prefix := data.Shoots[shoot].Prefix
+		if prefix == "" {
+			log.Printf("shoot did not exist")
+			c.Data(http.StatusNotFound, "text/plain", []byte("Shoot not found"))
+			return
+		}
+
 		objects, err := getObjects(client, region, bucket, prefix, page, maxPics) // Get the prefix objects
 		if err != nil {
-			//log.Print(err.Error())
+			log.Print(err.Error())
 			abortWithError(http.StatusBadRequest, err, c)
 		}
 		urls, err := createUrls(client, bucket, objects, minutes) // Generate the pre-signed urls
 		if err != nil {
-			//log.Print(err.Error())
+			log.Print(err.Error())
 			abortWithError(http.StatusBadRequest, err, c)
 		}
 		html, err := createHTML(urls) // Generate the HTML
 		if err != nil {
-			//log.Print(err.Error())
+			log.Print(err.Error())
 			abortWithError(http.StatusBadRequest, err, c)
 		}
 		c.Data(http.StatusOK, "text/html; charset-utf-8", []byte(html)) // Send the HTML to the client
@@ -718,6 +725,70 @@ func main() {
 		}
 
 		picksJSON, _ := json.Marshal(picks)
+
+		c.Data(http.StatusOK, "application/json", picksJSON)
+	})
+
+	r.GET("/shoot/:shoot/updatePicksCookie", func(c *gin.Context) {
+
+		shootName := c.Param("shoot")
+
+		auth, username := checkToken(c, redClient)
+		if !auth {
+			c.Redirect(302, "/login")
+			return
+		}
+
+		// Create an Item struct to hold the retrieved data
+		var picks Picks
+
+		key := map[string]*dynamodb.AttributeValue{
+			"username": {
+				S: aws.String(username),
+			},
+		}
+
+		// Define which attribute(s) you want to retrieve
+		projectionExpression := fmt.Sprintf("shoots.%v.picks", shootName)
+
+		// Create a GetItemInput object
+		input := &dynamodb.GetItemInput{
+			TableName:            aws.String(tableName),
+			Key:                  key,
+			ProjectionExpression: aws.String(projectionExpression),
+		}
+
+		// Perform the GetItem operation
+		result, err := svc.GetItem(input)
+		if err != nil {
+			fmt.Println("Error getting item:", err)
+			return
+		}
+
+		// Check if the item was found
+		if result.Item != nil {
+			// Unmarshal the DynamoDB item into the Item struct
+			err := dynamodbattribute.UnmarshalMap(result.Item["shoots"].M[shootName].M["picks"].M, &picks)
+			if err != nil {
+				fmt.Println("Error unmarshalling item:", err)
+				return
+			}
+		} else {
+			fmt.Println("Item not found")
+		}
+
+		picksJSON, _ := json.Marshal(picks)
+
+		// Create a new cookie
+		picksCookie := &http.Cookie{
+			Name:     "picks",
+			Value:    string(picksJSON),
+			Secure:   true,
+			HttpOnly: false,
+		}
+
+		weekInSeconds := 604800
+		c.SetCookie(picksCookie.Name, picksCookie.Value, weekInSeconds, "/", c.Request.Host, picksCookie.Secure, picksCookie.HttpOnly)
 
 		c.Data(http.StatusOK, "application/json", picksJSON)
 	})
@@ -785,7 +856,7 @@ func main() {
 	})
 
 	// Called when the user sends their shoot picks in via the front end
-	r.POST("/shoot/:shoot/:page/submitPicks", func(c *gin.Context) {
+	r.POST("/shoot/:shoot/:page/savePicks", func(c *gin.Context) {
 
 		auth, username := checkToken(c, redClient)
 		if !auth {
@@ -852,11 +923,15 @@ func main() {
 		data, err := getUser(tableName, username, svc)
 		if err != nil {
 			log.Printf("could not get shoot data: %v", err)
+			abortWithError(http.StatusNotFound, err, c)
+			return
 		}
 
 		results, err := json.Marshal(data.Shoots[shoot].Picks)
 		if err != nil {
 			log.Printf("could not marshal shoot json data: %v", err)
+			abortWithError(http.StatusNotFound, err, c)
+			return
 		}
 
 		c.Data(http.StatusOK, "application/json", results)
