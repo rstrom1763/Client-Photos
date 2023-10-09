@@ -76,7 +76,7 @@ func autoRenewDynamoCredentials(svc **dynamodb.DynamoDB) {
 // bucket is a string annotating the S3 bucket to be used. Example "ryans-test-bucket675"
 // prefix is a string annotating the prefix within the bucket to be targeting
 // maxKeys is an int64 to set the max number of objects to return
-func getObjects(client *s3.S3, region string, bucket string, prefix string, page int, pageSize int) ([]string, error) {
+func getObjects(client *s3.S3, bucket string, prefix string, page int, pageSize int) ([]string, error) {
 
 	var final []string // Holds the final value for the return
 	lowerBound := page * pageSize
