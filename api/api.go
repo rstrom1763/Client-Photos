@@ -653,7 +653,7 @@ func main() {
 			return
 		}
 
-		objects, err := getObjects(client, region, bucket, prefix, page, maxPics) // Get the prefix objects
+		objects, err := getObjects(client, bucket, prefix, page, maxPics) // Get the prefix objects
 		if err != nil {
 			log.Print(err.Error())
 			abortWithError(http.StatusBadRequest, err, c)
