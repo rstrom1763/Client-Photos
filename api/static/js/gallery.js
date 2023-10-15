@@ -3,41 +3,25 @@ let picks = {
     picks: []
 }
 
-function createSecureCookie(name, value, expirationDays, path = "/", domain = "") {
-
-    // Calculate the expiration date
-    const currentDate = new Date();
-    currentDate.setTime(currentDate.getTime() + (expirationDays * 24 * 60 * 60 * 1000));
-    const expires = `expires=${currentDate.toUTCString()}`;
-
-    // Set the Secure attribute to ensure the cookie is secure (HTTPS only)
-    const secureFlag = "Secure";
-
-    // Construct the cookie string
-    const cookieString = `${name}=${value}; ${expires}; path=${path}; domain=${domain}; ${secureFlag}`;
-
-    // Set the cookie
-    document.cookie = cookieString;
-
-}
-function setCookie(cookieName, cookieValue, expirationDays) {
+function setCookie(cookieName, cookieValue, expirationDays, domain) {
     const expirationDate = new Date();
     expirationDate.setDate(expirationDate.getDate() + expirationDays);
+    const secure = true
 
     const cookieString = `${encodeURIComponent(cookieName)}=${encodeURIComponent(
         cookieValue
-    )}; expires=${expirationDate.toUTCString()}; path=/`;
+    )}; expires=${expirationDate.toUTCString()}; path=/;domain=${domain};secure=${secure}`;
 
     document.cookie = cookieString;
 }
 
-function savePicksToCookie(value){
+function savePicksToCookie(value, domain, callback){
     //createSecureCookie("picks",value,"7")
-    setCookie("picks",JSON.stringify(value),7)
-
+    setCookie("picks",JSON.stringify(value),7,domain)
+    callback()
 }
 
-function get_picks(url){
+function get_picks(url, callback){
 
     let xhr = new XMLHttpRequest();
     xhr.open("GET", url);
@@ -46,6 +30,7 @@ function get_picks(url){
     xhr.onreadystatechange = function () {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
+                callback()
                 return xhr.responseText
             } else {
                 console.log("Something went wrong getting picks from the server")
@@ -64,16 +49,19 @@ function markImage(id) {
         img.childNodes[0].style = null
         window.picks.count--
         window.picks.picks = window.picks.picks.filter(item => item !== id) // Removes the picture from picks list
-        savePicksToCookie(window.picks)
-        document.getElementById("counter").innerHTML = window.picks.count + " Items Selected"
+        savePicksToCookie(window.picks,"."+window.location.hostname,() => {
+            document.getElementById("counter").innerHTML = window.picks.count + " Items Selected";
+        });
+
     } else {
         img.alt = "1"
         let borderPX = Math.floor(img.childNodes[0].width * .0125)
         img.childNodes[0].style = "outline: " + borderPX + "px solid #ff6600;outline-offset: -" + borderPX + "px;"
         window.picks.count++
         window.picks.picks.push(id) // Adds a picture to the list
-        savePicksToCookie(window.picks)
-        document.getElementById("counter").innerHTML = window.picks.count + " Items Selected"
+        savePicksToCookie(window.picks,"."+window.location.hostname,()=>{
+            document.getElementById("counter").innerHTML = window.picks.count + " Items Selected";
+        });
     }
     document.getElementById("save_status").innerHTML = ""
 }
@@ -89,8 +77,6 @@ function save() {
 
     xhr.onreadystatechange = function () {
         if (xhr.readyState === 4) {
-            console.log(xhr.status);
-            console.log(xhr.responseText);
             if (xhr.status === 200 || xhr.status === 0) {
                 document.getElementById("save_status").innerHTML = "Saved!"
             } else {
@@ -99,7 +85,6 @@ function save() {
             }
         }
     };
-    console.log(picks)
     xhr.send(picks);
 
 }
@@ -128,35 +113,34 @@ function loadSelected(){
     url = url.split("/");
     url[5] = String("updatePicksCookie")
     url = url.join("/")
-    get_picks(url) // Updates the cookie
+    get_picks(url,() =>{
 
-    // Set picks to cookie value
-    let picks = getCookie("picks")
-    picks = JSON.parse(picks)
-    if (picks.count === 0){
-        picks = {
-            count: 0,
-            picks: []
+        // Set picks to cookie value
+        let picks = getCookie("picks")
+        picks = JSON.parse(picks)
+        if (picks.count === 0){
+            picks = {
+                count: 0,
+                picks: []
+            }
         }
-    }
-    window.picks = picks
-    savePicksToCookie(window.picks)
+        window.picks = picks
+        savePicksToCookie(window.picks, "."+window.location.hostname,()=>{
 
-    document.getElementById("counter").innerHTML = window.picks.count + " Items Selected"
+            document.getElementById("counter").innerHTML = window.picks.count + " Items Selected"
 
+            for (let i=0;i<=window.picks.picks.length-1;i++) {
 
-    for (let i=0;i<=window.picks.picks.length-1;i++) {
-
-        try {
-            let id = window.picks.picks[i]
-            let img = document.getElementById(id)
-            img.alt = "1"
-            let borderPX = Math.floor(img.childNodes[0].width * .0125)
-            img.childNodes[0].style = "outline: " + borderPX + "px solid #ff6600;outline-offset: -" + borderPX + "px;"
-        } catch {} // Do nothing on error
-
-
-    }
+                try {
+                    let id = window.picks.picks[i]
+                    let img = document.getElementById(id)
+                    img.alt = "1"
+                    let borderPX = Math.floor(img.childNodes[0].width * .0125)
+                    img.childNodes[0].style = "outline: " + borderPX + "px solid #ff6600;outline-offset: -" + borderPX + "px;"
+                } catch {}
+            }
+        });
+    });
 }
 
 // Wait for all images to load
@@ -170,8 +154,6 @@ window.addEventListener("load", function () {
 
     let url = window.location.href;
 
-    console.log(JSON.stringify(window.picks) + " final")
-
     url = url.split("/");
     document.getElementById("page_num").innerHTML = "Page " + String(parseInt(url[url.length - 1]) + 1)
 });
@@ -181,7 +163,6 @@ function nextPage() {
     let url = window.location.href;
     url = url.split("/");
     url[url.length - 1] = String(parseInt(url[url.length - 1]) + 1)
-    console.log(url.join("/"))
     window.location.href = url.join("/")
 }
 
@@ -191,7 +172,6 @@ function previousPage() {
     url = url.split("/");
     if ((parseInt(url[url.length - 1]) - 1) >= 0) {
         url[url.length - 1] = String(parseInt(url[url.length - 1]) - 1)
-        console.log(url.join("/"))
         window.location.href = url.join("/")
     }
 }
