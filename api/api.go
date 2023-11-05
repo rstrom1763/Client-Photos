@@ -113,7 +113,6 @@ func getShoots(tableName string, username string, svc *dynamodb.DynamoDB) (strin
 	}
 
 	var attributeToGet string = "shoots"
-	fmt.Println(tableName, username)
 
 	input := &dynamodb.GetItemInput{
 		TableName:            aws.String(tableName),
