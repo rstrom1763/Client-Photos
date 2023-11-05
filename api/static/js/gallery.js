@@ -175,3 +175,19 @@ function previousPage() {
         window.location.href = url.join("/")
     }
 }
+
+function goHome(){
+    save()
+
+    let url = window.location.href;
+    url = url.split("/");
+
+    let newUrl = [];
+
+    newUrl.push(url[0])
+    newUrl.push(url[1])
+    newUrl.push(url[2])
+    newUrl.push("home")
+
+    window.location.href = newUrl.join("/")
+}

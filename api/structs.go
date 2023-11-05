@@ -32,3 +32,8 @@ type Picks struct {
 	Count int      `json:"count"`
 	Picks []string `json:"picks"`
 }
+
+type HomePageTile struct {
+	Name      string
+	Thumbnail string
+}

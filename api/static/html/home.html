@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Home Page</title>
+    <link rel="stylesheet" href="home.css">
+    <script src="home.js"></script>
+</head>
+<body>
+
+<div class="container">
+
+    {{range .}}
+        <div onclick="goToShoot(this)" class="tile">
+            <a>
+                <div class="thumbnail">
+                   <img src="{{ .Thumbnail }}">
+                </div>
+                <h2 id="name">{{ .Name }}</h2>
+            </a>
+        </div>
+    {{end}}
+
+</div>
+</body>
+</html>

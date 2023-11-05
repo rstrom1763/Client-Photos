@@ -103,6 +103,50 @@ func getObjects(client *s3.S3, bucket string, prefix string, page int, pageSize 
 	return final, nil
 }
 
+// Used to get all of a user's shoots for use in the home page
+func getShoots(tableName string, username string, svc *dynamodb.DynamoDB) (string, error) {
+
+	key := map[string]*dynamodb.AttributeValue{
+		"username": {
+			S: aws.String(username),
+		},
+	}
+
+	var attributeToGet string = "shoots"
+	fmt.Println(tableName, username)
+
+	input := &dynamodb.GetItemInput{
+		TableName:            aws.String(tableName),
+		Key:                  key,
+		ProjectionExpression: aws.String(attributeToGet),
+	}
+
+	result, err := svc.GetItem(input)
+	if err != nil {
+		return "", errors.New("there was an error getting the shoots")
+	}
+
+	var final []Shoot
+	var shoots map[string]Shoot
+	err = dynamodbattribute.UnmarshalMap(result.Item, &final)
+
+	if result.Item != nil {
+		// Unmarshal the DynamoDB item into the Item struct
+		err := dynamodbattribute.UnmarshalMap(result.Item["shoots"].M, &shoots)
+		if err != nil {
+			fmt.Println("Error unmarshalling item:", err)
+			return "", errors.New("error unmarshalling item")
+		}
+	} else {
+		fmt.Println("Item not found")
+	}
+
+	shootsJSON, _ := json.Marshal(shoots)
+
+	return string(shootsJSON), nil
+
+}
+
 // Takes list of objects in the S3 prefix and creates pre-signed urls for them
 // Returns a string slice containing the urls
 // client is the S3 client object. Used to connect to the S3 service
@@ -116,14 +160,7 @@ func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) ([]T
 	// iterate through objects keys from the bucket + prefix
 	for _, key := range keys {
 
-		// Create the request object using the key + bucket
-		req, _ := client.GetObjectRequest(&s3.GetObjectInput{
-			Bucket: aws.String(bucket),
-			Key:    aws.String(key),
-		})
-
-		// Generate pre-signed url for x minutes using the request object
-		urlStr, err := req.Presign(time.Duration(minutes) * time.Minute)
+		urlStr, err := createS3Presigned(bucket, key, minutes, client)
 		if err != nil {
 			return []Thumbnail{}, nil
 		}
@@ -135,6 +172,44 @@ func createUrls(client *s3.S3, bucket string, keys []string, minutes int64) ([]T
 	}
 
 	return final, nil
+}
+
+// Create the request object using the key + bucket
+func createS3Presigned(bucket string, key string, minutes int64, client *s3.S3) (string, error) {
+	// Create the request object using the key + bucket
+	req, _ := client.GetObjectRequest(&s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+
+	// Generate pre-signed url for x minutes using the request object
+	urlStr, err := req.Presign(time.Duration(minutes) * time.Minute)
+	if err != nil {
+		return "", err
+	}
+
+	return urlStr, nil
+
+}
+
+func generateTiles(user string, inputMAP map[string]Shoot, bucket string, client *s3.S3) ([]HomePageTile, error) {
+
+	var final []HomePageTile
+
+	for key, value := range inputMAP {
+
+		thumbPath := fmt.Sprintf("%v/%v/%v", user, key, value.Thumbnail)
+
+		thumbnail, err := createS3Presigned(bucket, thumbPath, 30, client)
+		if err != nil {
+			return make([]HomePageTile, 0), errors.New("could not generate thumbnail url")
+		}
+
+		final = append(final, HomePageTile{Name: key, Thumbnail: thumbnail})
+	}
+
+	return final, nil
+
 }
 
 // Takes in a string slice of pre-signed urls and generates the html page to send to the user
@@ -415,8 +490,11 @@ func cacheStaticFiles() map[string][]byte {
 		staticFiles[fileName] = data
 	}
 
-	data, _ := os.ReadFile("./static/favicon.ico")
-	staticFiles["favicon.ico"] = data
+	favicon, _ := os.ReadFile("./static/favicon.ico")
+	staticFiles["favicon.ico"] = favicon
+
+	homeButton, _ := os.ReadFile("./static/home.png")
+	staticFiles["home.png"] = homeButton
 
 	return staticFiles
 }
@@ -613,7 +691,45 @@ func main() {
 	})
 
 	r.GET("/home", func(c *gin.Context) {
-		c.Data(http.StatusOK, "text/plain", []byte("You have reached your home page!"))
+
+		auth, userName := checkToken(c, redClient)
+		if !auth {
+			c.Redirect(302, "/login")
+			return
+		}
+
+		shoots, err := getShoots(tableName, userName, svc)
+		if err != nil {
+			abortWithError(http.StatusInternalServerError, err, c)
+			return
+		}
+
+		var shootsMap map[string]Shoot
+		_ = json.Unmarshal([]byte(shoots), &shootsMap)
+
+		tiles, err := generateTiles(userName, shootsMap, bucket, client)
+		if err != nil {
+			abortWithError(http.StatusInternalServerError, err, c)
+			return
+		}
+
+		tmpl, err := template.ParseFiles("./static/html/home.html")
+		if err != nil {
+			log.Printf("Could not parse home.html")
+			c.Data(http.StatusInternalServerError, "text/plain", []byte("Could not parse template"))
+			return
+		}
+
+		var final bytes.Buffer
+		err = tmpl.Execute(&final, tiles)
+		if err != nil {
+			log.Printf("Could not execute html template: %v", err)
+			c.Data(http.StatusInternalServerError, "text/plain", []byte("Could not parse template"))
+			return
+		}
+
+		c.Data(http.StatusOK, "text/html", []byte(final.String()))
+
 	})
 
 	r.GET("/login", func(c *gin.Context) {
