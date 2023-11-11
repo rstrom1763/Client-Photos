@@ -563,6 +563,7 @@ func main() {
 	bucket := env("BUCKET")       // S3 bucket to be referenced
 	tableName := env("TABLENAME") // DynamoDB table to use
 	protocol := strings.ToLower(env("PROTOCOL"))
+	debug := strings.ToLower(env("DEBUG"))
 	scyllaUrl := env("SCYLLA_URL")
 	var minutes int64
 	minutes, _ = strconv.ParseInt(env("MINUTES"), 10, 64) // Number of minutes the pre-signed urls will be good for
@@ -1054,16 +1055,18 @@ func main() {
 	})
 
 	// Get a user from the DB
-	// Only for testing. Must be removed before production use
-	r.GET("/user/:username", func(c *gin.Context) {
-		username := c.Param("username")
-		result, err := getUser(tableName, username, svc)
-		if err != nil {
-			abortWithError(404, err, c)
-			return
-		}
-		c.JSON(http.StatusOK, result)
-	})
+	// Only works in debug mode
+	if debug == "true" {
+		r.GET("/user/:username", func(c *gin.Context) {
+			username := c.Param("username")
+			result, err := getUser(tableName, username, svc)
+			if err != nil {
+				abortWithError(404, err, c)
+				return
+			}
+			c.JSON(http.StatusOK, result)
+		})
+	}
 
 	// Creates a new user in the database
 	r.POST("/createUser", func(c *gin.Context) {
