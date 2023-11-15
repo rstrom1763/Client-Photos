@@ -1,0 +1,148 @@
+/* Start of loading screen stuff */
+#loading-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgb(80, 80, 80);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loader {
+    border: 6px solid #f3f3f3;
+    border-top: 6px solid #3498db;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* End of loading screen stuff */
+
+#gallery {
+    position: relative;
+    z-index: 1;
+    line-height: 0;
+    -webkit-column-count: 5;
+    /* split it into 5 columns */
+    -webkit-column-gap: 5px;
+    /* give it a 5px gap between columns */
+    -moz-column-count: 4;
+    -moz-column-gap: 5px;
+    column-count: 4;
+    column-gap: 5px;
+}
+
+#gallery img {
+    position: relative;
+    z-index: 2;
+    width: 100% !important;
+    height: auto !important;
+    margin-bottom: 5px;
+    filter: drop-shadow(2px 2px 2px rgb(0, 0, 0));
+    cursor: pointer
+}
+
+body {
+    background-color: #f8f2e6;
+    margin: 0;
+}
+
+.navbar {
+    z-index: 9999;
+    overflow: hidden;
+    background-color: #333;
+    position: fixed;
+    top: 0;
+    width: 100%;
+}
+
+.navbar a {
+    float: right;
+    display: block;
+    color: #f2f2f2;
+    text-align: center;
+    padding: 14px 16px;
+    text-decoration: none;
+    font-size: 17px;
+}
+
+.navbar a:hover {
+    background: #ddd;
+    color: black;
+    cursor: pointer
+}
+
+.main {
+    padding: 16px;
+    margin-top: 30px;
+    height: 1500px;
+    /* Used in this example to enable scrolling */
+}
+
+
+/*If client has mouse pointer implement hover image zoom feature*/
+@media (hover: hover) and (pointer: fine) {
+    #gallery img:hover {
+        transition: transform .4s;
+        z-index: 9999;
+        position: relative;
+        z-index: 200;
+        transform: scale(1.38);
+
+    }
+
+    #gallery img:not(:hover) {
+        transition: transform .4s;
+        z-index: 1;
+        position: relative;
+        transform: scale(1);
+
+    }
+}
+
+@media (max-width: 1400px) {
+    #gallery {
+        -moz-column-count: 3;
+        -webkit-column-count: 3;
+        column-count: 3;
+    }
+}
+
+@media (max-width: 1000px) {
+    #gallery {
+        -moz-column-count: 2;
+        -webkit-column-count: 2;
+        column-count: 2;
+    }
+}
+
+@media (max-width: 800px) {
+    #gallery {
+        -moz-column-count: 2;
+        -webkit-column-count: 2;
+        column-count: 2;
+    }
+}
+
+@media (max-width: 400px) {
+    #gallery {
+        -moz-column-count: 1;
+        -webkit-column-count: 1;
+        column-count: 1;
+    }
+}

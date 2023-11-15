@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <link rel="stylesheet" href="gallery.css">
+    <script src="gallery.js"></script>
+    <meta charset="utf-8">
+
+    <title>Image Gallery</title>
+    <meta name="description" content="Responsive Image Gallery">
+</head>
+
+<body>
+
+    <div id="loading-screen">
+        <div class="loader"></div>
+    </div>
+
+    <div class="navbar">
+        <a onClick="save()">Save</a>
+        <a id="counter">0 Items Selected</a>
+        <a onclick="nextPage()">&gt;</a>
+        <a onclick="previousPage()">&lt;</a>
+        <a id="page_num">Page </a>
+        <a id="save_status">Saved!</a>
+        <a id="home_button" onClick="goHome()">Home</a>
+    </div>
+
+    <div id="gallery">
+
+        {{range .}}
+        <a id={{.Key}} onclick="markImage(this.id)" alt=0><img src={{.Url}}></a>
+        {{end}}
+
+    </div>
+</body>
+
+</html>
