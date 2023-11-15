@@ -197,9 +197,7 @@ func generateTiles(user string, inputMAP map[string]Shoot, bucket string, client
 
 	for key, value := range inputMAP {
 
-		thumbPath := fmt.Sprintf("%v/%v/%v", user, key, value.Thumbnail)
-
-		thumbnail, err := createS3Presigned(bucket, thumbPath, 30, client)
+		thumbnail, err := createS3Presigned(bucket, value.Thumbnail, 30, client)
 		if err != nil {
 			return make([]HomePageTile, 0), errors.New("could not generate thumbnail url")
 		}
