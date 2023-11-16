@@ -662,8 +662,10 @@ func main() {
 	// Initialize Gin
 	gin.SetMode(gin.ReleaseMode)      // Turn off debugging mode
 	r := gin.Default()                // Initialize Gin
-	r.Use(nocache.NoCache())          // Sets gin to disable browser caching
 	r.Use(StaticHandler(staticFiles)) // Cache and serve static files
+	if debug == "true" {
+		r.Use(nocache.NoCache()) // Sets gin to disable browser caching
+	}
 
 	//Route for health check
 	r.GET("/ping", func(c *gin.Context) {
