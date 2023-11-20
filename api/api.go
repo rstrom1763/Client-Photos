@@ -31,7 +31,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
 	"github.com/joho/godotenv"
-	nocache "github.com/things-go/gin-contrib/nocache"
+	"github.com/things-go/gin-contrib/nocache"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -112,7 +112,7 @@ func getShoots(tableName string, username string, svc *dynamodb.DynamoDB) (strin
 		},
 	}
 
-	var attributeToGet string = "shoots"
+	attributeToGet := "shoots"
 
 	input := &dynamodb.GetItemInput{
 		TableName:            aws.String(tableName),
@@ -191,7 +191,7 @@ func createS3Presigned(bucket string, key string, minutes int64, client *s3.S3) 
 
 }
 
-func generateTiles(user string, inputMAP map[string]Shoot, bucket string, client *s3.S3) ([]HomePageTile, error) {
+func generateTiles(inputMAP map[string]Shoot, bucket string, client *s3.S3) ([]HomePageTile, error) {
 
 	var final []HomePageTile
 
@@ -502,11 +502,11 @@ func StaticHandler(staticFiles map[string][]byte) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		url := fmt.Sprint(c.Request.URL)
-		urlArr := strings.Split(string(url), "/")
+		urlArr := strings.Split(url, "/")
 		file := urlArr[len(urlArr)-1]
 
 		if strings.Contains(file, ".") { // Check to see if the url potentially has a file
-			data, exists := staticFiles[file] // See if the file is cached, if so get it's bytes from the map
+			data, exists := staticFiles[file] // See if the file is cached, if so get its bytes from the map
 			if exists {
 				if strings.Contains(file, ".css") {
 					c.Data(http.StatusOK, "text/css", data)
@@ -707,7 +707,7 @@ func main() {
 		var shootsMap map[string]Shoot
 		_ = json.Unmarshal([]byte(shoots), &shootsMap)
 
-		tiles, err := generateTiles(userName, shootsMap, bucket, client)
+		tiles, err := generateTiles(shootsMap, bucket, client)
 		if err != nil {
 			abortWithError(http.StatusInternalServerError, err, c)
 			return
