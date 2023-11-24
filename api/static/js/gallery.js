@@ -59,7 +59,7 @@ function markImage(id) {
         img.childNodes[0].style = "outline: " + borderPX + "px solid #ff6600;outline-offset: -" + borderPX + "px;"
         window.picks.count++
         window.picks.picks.push(id) // Adds a picture to the list
-        savePicksToCookie(window.picks,"."+window.location.hostname,()=>{
+        savePicksToCookie(window.picks,"."+window.location.hostname,()=> {
             document.getElementById("counter").innerHTML = window.picks.count + " Items Selected";
         });
     }
@@ -113,7 +113,7 @@ function loadSelected(){
     url = url.split("/");
     url[5] = String("updatePicksCookie")
     url = url.join("/")
-    get_picks(url,() =>{
+    get_picks(url,() => {
 
         // Set picks to cookie value
         let picks = getCookie("picks")
@@ -143,19 +143,38 @@ function loadSelected(){
     });
 }
 
+// Makes all the calls for things that happen on the page prior to the loading page going away
+// Callback will be to take down loading page
+function loadingStuff() {
+
+    return new Promise((resolve,reject) => {
+        loadSelected() // Mark the previously selected images
+
+        let url = window.location.href;
+
+        url = url.split("/");
+        document.getElementById("page_num").innerHTML = "Page " + String(parseInt(url[url.length - 1]) + 1)
+        resolve();
+        reject(new Error("Something failed"));
+    });
+
+}
+
 // Wait for all images to load
 window.addEventListener("load", function () {
 
-    // Hide the loading screen once all images are loaded
-    const loadingScreen = document.getElementById("loading-screen");
-    loadingScreen.style.display = "none";
+    loadingStuff().then((result) => {
 
-    loadSelected() // Mark the previously selected images
+        // Hide the loading screen once all images are loaded
+        const loadingScreen = document.getElementById("loading-screen");
+        loadingScreen.style.display = "none";
 
-    let url = window.location.href;
+    }).catch((error) => {
 
-    url = url.split("/");
-    document.getElementById("page_num").innerHTML = "Page " + String(parseInt(url[url.length - 1]) + 1)
+        console.log(error)
+
+    });
+
 });
 
 function nextPage() {
