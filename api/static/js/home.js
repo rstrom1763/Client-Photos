@@ -15,3 +15,11 @@ function goToShoot(passedDiv){
     window.location.href = url.join("/")
 
 }
+
+window.addEventListener("load", function () {
+
+    // Hide the loading screen once all images are loaded
+    const loadingScreen = document.getElementById("loading-screen");
+    loadingScreen.style.display = "none";
+
+});
