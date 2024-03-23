@@ -508,10 +508,10 @@ func StaticHandler(staticFiles map[string][]byte) gin.HandlerFunc {
 		if strings.Contains(file, ".") { // Check to see if the url potentially has a file
 			data, exists := staticFiles[file] // See if the file is cached, if so get its bytes from the map
 			if exists {
-				
+
 				// Allow browser to cache for up to one hour
-				c.Header("Cache-Control", "max-age=3600")
-				
+				c.Header("Cache-Control", "max-age=1800")
+
 				if strings.Contains(file, ".css") {
 					c.Data(http.StatusOK, "text/css", data)
 				} else if strings.Contains(file, ".js") {
@@ -520,7 +520,7 @@ func StaticHandler(staticFiles map[string][]byte) gin.HandlerFunc {
 					c.Data(http.StatusOK, "image/x-icon", data)
 				}
 				c.Abort()
-				
+
 			}
 
 		}
@@ -733,6 +733,8 @@ func main() {
 			return
 		}
 
+		// Allow browser to cache for up to one hour
+		c.Header("Cache-Control", "max-age=1800")
 		c.Data(http.StatusOK, "text/html", []byte(final.String()))
 
 	})
@@ -789,6 +791,9 @@ func main() {
 			log.Print(err.Error())
 			abortWithError(http.StatusBadRequest, err, c)
 		}
+
+		// Allow browser to cache for up to one hour
+		c.Header("Cache-Control", "max-age=1800")
 		c.Data(http.StatusOK, "text/html; charset-utf-8", []byte(html)) // Send the HTML to the client
 	})
 
