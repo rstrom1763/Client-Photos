@@ -31,7 +31,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
 	"github.com/joho/godotenv"
-	nocache "github.com/things-go/gin-contrib/nocache"
+	"github.com/things-go/gin-contrib/nocache"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -112,7 +112,7 @@ func getShoots(tableName string, username string, svc *dynamodb.DynamoDB) (strin
 		},
 	}
 
-	var attributeToGet string = "shoots"
+	attributeToGet := "shoots"
 
 	input := &dynamodb.GetItemInput{
 		TableName:            aws.String(tableName),
@@ -191,7 +191,7 @@ func createS3Presigned(bucket string, key string, minutes int64, client *s3.S3) 
 
 }
 
-func generateTiles(user string, inputMAP map[string]Shoot, bucket string, client *s3.S3) ([]HomePageTile, error) {
+func generateTiles(inputMAP map[string]Shoot, bucket string, client *s3.S3) ([]HomePageTile, error) {
 
 	var final []HomePageTile
 
@@ -502,12 +502,16 @@ func StaticHandler(staticFiles map[string][]byte) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		url := fmt.Sprint(c.Request.URL)
-		urlArr := strings.Split(string(url), "/")
+		urlArr := strings.Split(url, "/")
 		file := urlArr[len(urlArr)-1]
 
 		if strings.Contains(file, ".") { // Check to see if the url potentially has a file
-			data, exists := staticFiles[file] // See if the file is cached, if so get it's bytes from the map
+			data, exists := staticFiles[file] // See if the file is cached, if so get its bytes from the map
 			if exists {
+
+				// Allow browser to cache for up to one hour
+				c.Header("Cache-Control", "max-age=1800")
+
 				if strings.Contains(file, ".css") {
 					c.Data(http.StatusOK, "text/css", data)
 				} else if strings.Contains(file, ".js") {
@@ -516,6 +520,7 @@ func StaticHandler(staticFiles map[string][]byte) gin.HandlerFunc {
 					c.Data(http.StatusOK, "image/x-icon", data)
 				}
 				c.Abort()
+
 			}
 
 		}
@@ -662,8 +667,10 @@ func main() {
 	// Initialize Gin
 	gin.SetMode(gin.ReleaseMode)      // Turn off debugging mode
 	r := gin.Default()                // Initialize Gin
-	r.Use(nocache.NoCache())          // Sets gin to disable browser caching
 	r.Use(StaticHandler(staticFiles)) // Cache and serve static files
+	if debug == "true" {
+		r.Use(nocache.NoCache()) // Sets gin to disable browser caching
+	}
 
 	//Route for health check
 	r.GET("/ping", func(c *gin.Context) {
@@ -705,7 +712,7 @@ func main() {
 		var shootsMap map[string]Shoot
 		_ = json.Unmarshal([]byte(shoots), &shootsMap)
 
-		tiles, err := generateTiles(userName, shootsMap, bucket, client)
+		tiles, err := generateTiles(shootsMap, bucket, client)
 		if err != nil {
 			abortWithError(http.StatusInternalServerError, err, c)
 			return
@@ -726,6 +733,8 @@ func main() {
 			return
 		}
 
+		// Allow browser to cache for up to one hour
+		c.Header("Cache-Control", "max-age=1800")
 		c.Data(http.StatusOK, "text/html", []byte(final.String()))
 
 	})
@@ -782,6 +791,9 @@ func main() {
 			log.Print(err.Error())
 			abortWithError(http.StatusBadRequest, err, c)
 		}
+
+		// Allow browser to cache for up to one hour
+		c.Header("Cache-Control", "max-age=1800")
 		c.Data(http.StatusOK, "text/html; charset-utf-8", []byte(html)) // Send the HTML to the client
 	})
 
@@ -1091,7 +1103,7 @@ func main() {
 		var hash []byte
 		hash, err = bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 		if err != nil {
-			err = fmt.Errorf("could not hash the password %v", err)
+			err = fmt.Errorf("could not hash the password: %v", err)
 			abortWithError(http.StatusInternalServerError, err, c)
 			return
 
