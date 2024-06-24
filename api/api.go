@@ -312,15 +312,7 @@ func setToken(r *redis.Client, username string, token string) {
 
 // Returns error code and ends handler function for gin routes
 func abortWithError(statusCode int, err error, c *gin.Context) {
-
-	_ = c.AbortWithError(statusCode, err)
-	//c.JSON(statusCode, gin.H{"status": fmt.Sprint(err)})
-	errorPage, err := os.ReadFile("./static/error.html")
-	if err != nil {
-		log.Fatal(err)
-	}
-	c.Data(statusCode, "text/html; charset=utf-8", errorPage)
-
+	c.JSON(statusCode, gin.H{"status": fmt.Sprint(err)})
 }
 
 func generateSSL() {
