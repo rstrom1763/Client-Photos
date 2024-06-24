@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -50,7 +51,7 @@ func env(key string) string {
 // This function renews the dynamoDB client on a 4-minute interval
 // This prevents security token expiration errors
 // Gets put into a goroutine to run in the background
-func autoRenewDynamoCredentials(svc **dynamodb.DynamoDB) {
+func autoRenewDynamoCredentials(svc **dynamodb.DynamoDB, region string) {
 
 	for {
 
@@ -65,7 +66,7 @@ func autoRenewDynamoCredentials(svc **dynamodb.DynamoDB) {
 		}))
 
 		// Create DynamoDB client
-		*svc = dynamodb.New(dynamoSess)
+		*svc = dynamodb.New(dynamoSess, aws.NewConfig().WithRegion(region))
 		// Nice
 	}
 }
@@ -313,7 +314,12 @@ func setToken(r *redis.Client, username string, token string) {
 func abortWithError(statusCode int, err error, c *gin.Context) {
 
 	_ = c.AbortWithError(statusCode, err)
-	c.JSON(statusCode, gin.H{"status": fmt.Sprint(err)})
+	//c.JSON(statusCode, gin.H{"status": fmt.Sprint(err)})
+	errorPage, err := os.ReadFile("./static/error.html")
+	if err != nil {
+		log.Fatal(err)
+	}
+	c.Data(statusCode, "text/html; charset=utf-8", errorPage)
 
 }
 
@@ -461,7 +467,31 @@ func updatePicks(tableName string, username string, shootName string, newValue P
 	return err
 }
 
+func gzipBytes(data []byte) ([]byte, error) {
+	// Create a buffer to hold the gzipped data.
+	var buf bytes.Buffer
+
+	// Create a new gzip writer with the buffer.
+	gz := gzip.NewWriter(&buf)
+
+	// Write the data to the gzip writer.
+	_, err := gz.Write(data)
+	if err != nil {
+		return nil, err
+	}
+
+	// Close the gzip writer to flush any remaining data.
+	err = gz.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	// Return the gzipped data.
+	return buf.Bytes(), nil
+}
+
 // Used to load the static files into memory
+// Files are gzipped
 func cacheStaticFiles() map[string][]byte {
 
 	staticFiles := make(map[string][]byte)
@@ -493,6 +523,11 @@ func cacheStaticFiles() map[string][]byte {
 	homeButton, _ := os.ReadFile("./static/home.png")
 	staticFiles["home.png"] = homeButton
 
+	for key, value := range staticFiles {
+		gzippedValue, _ := gzipBytes(value)
+		staticFiles[key] = gzippedValue
+	}
+
 	return staticFiles
 }
 
@@ -511,6 +546,8 @@ func StaticHandler(staticFiles map[string][]byte) gin.HandlerFunc {
 
 				// Allow browser to cache for up to one hour
 				c.Header("Cache-Control", "max-age=1800")
+				// Sets header to tell client the file is gzipped
+				c.Header("Content-Encoding", "gzip")
 
 				if strings.Contains(file, ".css") {
 					c.Data(http.StatusOK, "text/css", data)
@@ -604,8 +641,8 @@ func main() {
 			SharedConfigState: session.SharedConfigEnable,
 		}))
 		// Create DynamoDB client session
-		svc = dynamodb.New(dynamoSess)
-		go autoRenewDynamoCredentials(&svc) // Renew client session every 4 minutes to prevent token expiry
+		svc = dynamodb.New(dynamoSess, aws.NewConfig().WithRegion(region))
+		go autoRenewDynamoCredentials(&svc, region) // Renew client session every 4 minutes to prevent token expiry
 
 	} else {
 		scyllaCredentials := credentials.NewStaticCredentials("cassandra", "cassandra", "None") //Auth not yet actually working
@@ -647,12 +684,13 @@ func main() {
 	if err == nil {
 		fmt.Printf("Created the DB table: %v\n", tableName)
 	} else if !(strings.Contains(err.Error(), "ResourceInUseException: Table")) {
-		log.Fatalf("Could not create DB: %v", err)
+		log.Fatalf("Something went wrong with the database connection: %v", err)
 	}
 
 	// Create the Redis client
+	redisHost := fmt.Sprintf("%v:6379", env("REDIS_HOST"))
 	redClient := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
+		Addr:     redisHost,
 		Password: "",
 		DB:       0,
 	})
@@ -772,7 +810,7 @@ func main() {
 		prefix := data.Shoots[shoot].Prefix
 		if prefix == "" {
 			log.Printf("shoot did not exist")
-			c.Data(http.StatusNotFound, "text/plain", []byte("Shoot not found"))
+			abortWithError(http.StatusNotFound, err, c)
 			return
 		}
 
