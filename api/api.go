@@ -832,7 +832,12 @@ func main() {
 
 		// Allow browser to cache for up to one hour
 		c.Header("Cache-Control", "max-age=1800")
-		c.Data(http.StatusOK, "text/html; charset-utf-8", []byte(html)) // Send the HTML to the client
+		c.Header("Content-Encoding", "gzip")
+
+		// gzip the html
+		htmlGzipBytes, _ := gzipBytes([]byte(html))
+
+		c.Data(http.StatusOK, "text/html; charset-utf-8", htmlGzipBytes) // Send the gzip HTML to the client
 	})
 
 	r.GET("/shoot/:shoot", func(c *gin.Context) {
