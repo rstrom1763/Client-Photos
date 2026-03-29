@@ -33,6 +33,11 @@ resource aws_dynamodb_table "request_logs" {
     type = "N"
   }
 
+  attribute {
+    name = "remote_ip"
+    type = "S"
+  }
+
   replica {
     region_name = "eu-central-1"
     consistency_mode = "EVENTUAL"
@@ -56,6 +61,22 @@ resource aws_dynamodb_table "request_logs" {
     }
 
     name            = "method_gsi"
+    projection_type = "ALL"
+  }
+
+  global_secondary_index {
+
+    key_schema {
+      attribute_name = "remote_ip"
+      key_type = "HASH"
+    }
+
+    key_schema {
+      attribute_name = "timestamp"
+      key_type = "RANGE"
+    }
+
+    name            = "remote_ip_gsi"
     projection_type = "ALL"
   }
 
