@@ -81,3 +81,25 @@ resource aws_dynamodb_table "request_logs" {
   }
 
 }
+
+resource "aws_dynamodb_table" "user_sessions" {
+  name           = "user_sessions"
+  billing_mode   = "PAY_PER_REQUEST"
+  hash_key       = "username"
+  range_key      = "token"
+
+  attribute {
+    name = "username"
+    type = "S"
+  }
+
+  attribute {
+    name = "token"
+    type = "S"
+  }
+
+  ttl {
+    attribute_name = "expires_at"
+    enabled        = true
+  }
+}

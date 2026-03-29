@@ -33,7 +33,23 @@ type Picks struct {
 	Picks []string `json:"picks"`
 }
 
+type RequestLog struct {
+	RequestID string `json:"request_id"`
+	Timestamp int64  `json:"timestamp"`
+	Method    string `json:"method"`
+	Path      string `json:"path"`
+	RemoteIP  string `json:"remote_ip"`
+	Body      string `json:"body"`
+	Status    int    `json:"status"`
+}
+
 type HomePageTile struct {
 	Name      string
 	Thumbnail string
+}
+
+type Session struct {
+	Username  string `json:"username"`
+	Token     string `json:"token"`
+	ExpiresAt int64  `json:"expires_at"`
 }

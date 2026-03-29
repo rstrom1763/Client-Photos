@@ -30,7 +30,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis"
 	"github.com/joho/godotenv"
 	"github.com/things-go/gin-contrib/nocache"
 	"golang.org/x/crypto/bcrypt"
@@ -303,10 +302,27 @@ func createUser(tableName string, user User, svc *dynamodb.DynamoDB) error {
 	return nil
 }
 
-func setToken(r *redis.Client, username string, token string) {
-	err := r.Set(username, token, time.Minute*30).Err()
+func setToken(svc *dynamodb.DynamoDB, tableName string, username string, token string) {
+	session := Session{
+		Username:  username,
+		Token:     token,
+		ExpiresAt: time.Now().Add(time.Minute * 30).Unix(),
+	}
+
+	av, err := dynamodbattribute.MarshalMap(session)
 	if err != nil {
-		log.Printf("there was a problem setting the token in redis: %v", err)
+		log.Printf("there was a problem marshalling the session: %v", err)
+		return
+	}
+
+	input := &dynamodb.PutItemInput{
+		Item:      av,
+		TableName: aws.String(tableName),
+	}
+
+	_, err = svc.PutItem(input)
+	if err != nil {
+		log.Printf("there was a problem setting the token in DynamoDB: %v", err)
 	}
 }
 
@@ -384,8 +400,29 @@ func fileExists(filename string) bool {
 	return false // Error occurred (e.g., permission denied)
 }
 
-func resetTokenTimeout(redClient *redis.Client, username string, redisTimeout int) {
-	_ = redClient.Expire(username, time.Minute*time.Duration(redisTimeout))
+func resetTokenTimeout(svc *dynamodb.DynamoDB, tableName string, username string, token string, timeoutMinutes int) {
+	input := &dynamodb.UpdateItemInput{
+		Key: map[string]*dynamodb.AttributeValue{
+			"username": {
+				S: aws.String(username),
+			},
+			"token": {
+				S: aws.String(token),
+			},
+		},
+		UpdateExpression: aws.String("SET expires_at = :new_expires"),
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":new_expires": {
+				N: aws.String(strconv.FormatInt(time.Now().Add(time.Minute*time.Duration(timeoutMinutes)).Unix(), 10)),
+			},
+		},
+		TableName: aws.String(tableName),
+	}
+
+	_, err := svc.UpdateItem(input)
+	if err != nil {
+		log.Printf("failed to reset token timeout: %v", err)
+	}
 }
 
 func verifyPassword(hashedPassword string, inputPassword string, salt string) bool {
@@ -395,7 +432,7 @@ func verifyPassword(hashedPassword string, inputPassword string, salt string) bo
 	return err == nil
 }
 
-func checkToken(c *gin.Context, redClient *redis.Client) (bool, string) {
+func checkToken(c *gin.Context, svc *dynamodb.DynamoDB, tableName string) (bool, string) {
 
 	cookie, err := c.Cookie("authToken")
 	if err != nil {
@@ -410,17 +447,40 @@ func checkToken(c *gin.Context, redClient *redis.Client) (bool, string) {
 		return false, ""
 	}
 
-	val, err := redClient.Get(cookieValue["username"]).Result()
+	result, err := svc.GetItem(&dynamodb.GetItemInput{
+		TableName: aws.String(tableName),
+		Key: map[string]*dynamodb.AttributeValue{
+			"username": {
+				S: aws.String(cookieValue["username"]),
+			},
+			"token": {
+				S: aws.String(cookieValue["token"]),
+			},
+		},
+	})
 	if err != nil {
+		log.Printf("failed to get session from DynamoDB: %v", err)
 		return false, ""
-	} else {
-		if val == cookieValue["token"] {
-			resetTokenTimeout(redClient, cookieValue["username"], 30)
-			return true, cookieValue["username"]
-		} else {
-			return false, ""
-		}
 	}
+
+	if result.Item == nil {
+		return false, ""
+	}
+
+	var session Session
+	err = dynamodbattribute.UnmarshalMap(result.Item, &session)
+	if err != nil {
+		log.Printf("failed to unmarshal session: %v", err)
+		return false, ""
+	}
+
+	// Check if token matches and session hasn't expired
+	if session.ExpiresAt > time.Now().Unix() {
+		resetTokenTimeout(svc, tableName, cookieValue["username"], cookieValue["token"], 30)
+		return true, cookieValue["username"]
+	}
+
+	return false, ""
 }
 
 func updatePicks(tableName string, username string, shootName string, newValue Picks, svc *dynamodb.DynamoDB) error {
@@ -601,6 +661,8 @@ func main() {
 	minutes, _ = strconv.ParseInt(env("MINUTES"), 10, 64) // Number of minutes the pre-signed urls will be good for
 	staticFiles := cacheStaticFiles()
 	maxPics, _ := strconv.Atoi(env("MAXPICS"))
+	logTableName := env("LOG_TABLENAME")
+	sessionTableName := env("SESSION_TABLENAME")
 
 	//Ensure valid protocol env entry
 	if protocol != "http" && protocol != "https" {
@@ -665,11 +727,8 @@ func main() {
 				KeyType:       aws.String("HASH"),
 			},
 		},
-		ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
-			ReadCapacityUnits:  aws.Int64(10),
-			WriteCapacityUnits: aws.Int64(10),
-		},
-		TableName: aws.String(tableName),
+		BillingMode: aws.String(dynamodb.BillingModePayPerRequest),
+		TableName:   aws.String(tableName),
 	}
 
 	_, err = svc.CreateTable(createInput)
@@ -679,24 +738,112 @@ func main() {
 		log.Fatalf("Something went wrong with the database connection: %v", err)
 	}
 
-	// Create the Redis client
-	redisHost := fmt.Sprintf("%v:6379", env("REDIS_HOST"))
-	redClient := redis.NewClient(&redis.Options{
-		Addr:     redisHost,
-		Password: "",
-		DB:       0,
-	})
+	if logTableName != "" {
+		createLogTableInput := &dynamodb.CreateTableInput{
+			AttributeDefinitions: []*dynamodb.AttributeDefinition{
+				{
+					AttributeName: aws.String("request_id"),
+					AttributeType: aws.String("S"),
+				},
+			},
+			KeySchema: []*dynamodb.KeySchemaElement{
+				{
+					AttributeName: aws.String("request_id"),
+					KeyType:       aws.String("HASH"),
+				},
+			},
+			BillingMode: aws.String(dynamodb.BillingModePayPerRequest),
+			TableName:   aws.String(logTableName),
+		}
 
-	// Test the Redis client connection
-	// Exit program if Redis is unavailable
-	err = redClient.Ping().Err()
-	if err != nil {
-		log.Fatalf("Could not connect to Redis: %v", err)
+		_, err = svc.CreateTable(createLogTableInput)
+		if err == nil {
+			fmt.Printf("Created the logs DB table: %v\n", logTableName)
+		} else if !(strings.Contains(err.Error(), "ResourceInUseException: Table")) {
+			log.Printf("Something went wrong with the log table connection: %v", err)
+		} else {
+			log.Printf("There was an error creating the log table: %s", err.Error())
+		}
+	}
+
+	if sessionTableName != "" {
+		createSessionTableInput := &dynamodb.CreateTableInput{
+			AttributeDefinitions: []*dynamodb.AttributeDefinition{
+				{
+					AttributeName: aws.String("username"),
+					AttributeType: aws.String("S"),
+				},
+				{
+					AttributeName: aws.String("token"),
+					AttributeType: aws.String("S"),
+				},
+			},
+			KeySchema: []*dynamodb.KeySchemaElement{
+				{
+					AttributeName: aws.String("username"),
+					KeyType:       aws.String("HASH"),
+				},
+				{
+					AttributeName: aws.String("token"),
+					KeyType:       aws.String("RANGE"),
+				},
+			},
+			BillingMode: aws.String(dynamodb.BillingModePayPerRequest),
+			TableName:   aws.String(sessionTableName),
+		}
+
+		_, err = svc.CreateTable(createSessionTableInput)
+		if err == nil {
+			fmt.Printf("Created the sessions DB table: %v\n", sessionTableName)
+
+			// Enable TTL on the session table
+			ttlInput := &dynamodb.UpdateTimeToLiveInput{
+				TableName: aws.String(sessionTableName),
+				TimeToLiveSpecification: &dynamodb.TimeToLiveSpecification{
+					AttributeName: aws.String("expires_at"),
+					Enabled:       aws.Bool(true),
+				},
+			}
+			_, err = svc.UpdateTimeToLive(ttlInput)
+			if err != nil {
+				log.Printf("Error enabling TTL on session table: %v", err)
+			}
+
+		} else if !(strings.Contains(err.Error(), "ResourceInUseException: Table")) {
+			log.Printf("Something went wrong with the session table connection: %v", err)
+		}
 	}
 
 	// Initialize Gin
-	gin.SetMode(gin.ReleaseMode)      // Turn off debugging mode
-	r := gin.Default()                // Initialize Gin
+	gin.SetMode(gin.ReleaseMode) // Turn off debugging mode
+	r := gin.Default()           // Initialize Gin
+
+	// Initialize Request Logger if table is provided
+	if logTableName != "" {
+		requestLogger := NewRequestLogger(svc, logTableName)
+		r.Use(func(c *gin.Context) {
+			// Read the request body
+			var bodyBytes []byte
+			if c.Request.Body != nil {
+				bodyBytes, _ = io.ReadAll(c.Request.Body)
+			}
+			// Restore the request body for the next handlers
+			c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+			// Process the request
+			c.Next()
+
+			// Log the request after it's processed
+			go requestLogger.LogRequest(
+				c.Request.Method,
+				c.Request.URL.Path,
+				c.ClientIP(),
+				string(bodyBytes),
+				c.Writer.Status(),
+			)
+		})
+	}
+
 	r.Use(StaticHandler(staticFiles)) // Cache and serve static files
 	if debug == "true" {
 		r.Use(nocache.NoCache()) // Sets gin to disable browser caching
@@ -714,7 +861,7 @@ func main() {
 	// Route to request either login or home page for the user
 	r.GET("/", func(c *gin.Context) {
 
-		auth, _ := checkToken(c, redClient)
+		auth, _ := checkToken(c, svc, sessionTableName)
 
 		if !auth {
 			c.Redirect(302, "/login")
@@ -727,7 +874,7 @@ func main() {
 
 	r.GET("/home", func(c *gin.Context) {
 
-		auth, userName := checkToken(c, redClient)
+		auth, userName := checkToken(c, svc, sessionTableName)
 		if !auth {
 			c.Redirect(302, "/login")
 			return
@@ -771,7 +918,7 @@ func main() {
 
 	r.GET("/login", func(c *gin.Context) {
 
-		auth, _ := checkToken(c, redClient)
+		auth, _ := checkToken(c, svc, sessionTableName)
 
 		if auth {
 			c.Redirect(302, "/home")
@@ -784,7 +931,7 @@ func main() {
 
 	r.GET("/shoot/:shoot/:page", func(c *gin.Context) {
 
-		auth, username := checkToken(c, redClient)
+		auth, username := checkToken(c, svc, sessionTableName)
 		if !auth {
 			c.Redirect(302, "/login")
 			return
@@ -841,7 +988,7 @@ func main() {
 
 		shootName := c.Param("shoot")
 
-		auth, username := checkToken(c, redClient)
+		auth, username := checkToken(c, svc, sessionTableName)
 		if !auth {
 			c.Redirect(302, "/login")
 			return
@@ -894,7 +1041,7 @@ func main() {
 
 		shootName := c.Param("shoot")
 
-		auth, username := checkToken(c, redClient)
+		auth, username := checkToken(c, svc, sessionTableName)
 		if !auth {
 			c.Redirect(302, "/login")
 			return
@@ -956,7 +1103,7 @@ func main() {
 
 	r.POST("/shoot/add/:shootName", func(c *gin.Context) {
 
-		auth, username := checkToken(c, redClient)
+		auth, username := checkToken(c, svc, sessionTableName)
 		if !auth {
 			c.Redirect(302, "/login")
 			return
@@ -1019,7 +1166,7 @@ func main() {
 	// Called when the user sends their shoot picks in via the front end
 	r.POST("/shoot/:shoot/:page/savePicks", func(c *gin.Context) {
 
-		auth, username := checkToken(c, redClient)
+		auth, username := checkToken(c, svc, sessionTableName)
 		if !auth {
 			c.Redirect(302, "/login")
 			return
@@ -1074,7 +1221,7 @@ func main() {
 		shoot := c.Param("shoot")
 		shoot = strings.ToLower(shoot)
 
-		auth, username := checkToken(c, redClient)
+		auth, username := checkToken(c, svc, sessionTableName)
 
 		if !auth {
 			c.Redirect(http.StatusFound, "/login")
@@ -1191,7 +1338,7 @@ func main() {
 			if err != nil {
 				log.Printf("Could not generate token for %v: %v", providedCredentials["username"], err)
 			}
-			setToken(redClient, providedCredentials["username"], token)
+			setToken(svc, sessionTableName, providedCredentials["username"], token)
 
 			authJson := map[string]string{"username": user.Username, "token": token}
 			authJsonBytes, err := json.Marshal(authJson)
