@@ -87,6 +87,7 @@ resource "aws_dynamodb_table" "user_sessions" {
   billing_mode   = "PAY_PER_REQUEST"
   hash_key       = "username"
   range_key      = "token"
+  deletion_protection_enabled = true
 
   attribute {
     name = "username"
@@ -102,4 +103,30 @@ resource "aws_dynamodb_table" "user_sessions" {
     attribute_name = "expires_at"
     enabled        = true
   }
+}
+
+resource "aws_dynamodb_table" "photo-clients" {
+  name           = "photo-clients"
+  billing_mode   = "PAY_PER_REQUEST"
+  hash_key       = "username"
+  deletion_protection_enabled = true
+
+  stream_enabled   = true
+  stream_view_type = "NEW_AND_OLD_IMAGES"
+
+  attribute {
+    name = "username"
+    type = "S"
+  }
+
+  replica {
+    region_name = "eu-west-3"
+    consistency_mode = "EVENTUAL"
+  }
+
+  replica {
+    region_name = "us-west-2"
+    consistency_mode = "EVENTUAL"
+  }
+
 }
