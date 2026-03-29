@@ -32,7 +32,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"github.com/things-go/gin-contrib/nocache"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -917,9 +916,6 @@ func main() {
 	}
 
 	r.Use(StaticHandler(staticFiles)) // Cache and serve static files
-	if debug == "true" {
-		r.Use(nocache.NoCache()) // Sets gin to disable browser caching
-	}
 
 	//Route for health check
 	r.GET("/ping", func(c *gin.Context) {
