@@ -125,8 +125,67 @@ resource "aws_dynamodb_table" "photo-clients" {
   }
 
   replica {
-    region_name = "us-west-2"
+    region_name      = "us-west-2"
     consistency_mode = "EVENTUAL"
   }
 
+}
+
+data "aws_region" "current" {}
+
+data "aws_caller_identity" "current" {}
+
+resource "random_id" "bucket_id" {
+  byte_length = 4
+}
+
+resource "aws_s3_bucket" "photos_bucket" {
+  bucket = "client-photos-${data.aws_region.current.name}-${data.aws_caller_identity.current.account_id}-${random_id.bucket_id.hex}"
+}
+
+resource "aws_s3_bucket_public_access_block" "photos_public_access" {
+  bucket = aws_s3_bucket.photos_bucket.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_versioning" "photos_versioning" {
+  bucket = aws_s3_bucket.photos_bucket.id
+  versioning_configuration {
+    status = "Disabled"
+  }
+}
+
+# SSM Parameters to store configuration
+resource "aws_ssm_parameter" "region" {
+  name  = "/app/region"
+  type  = "String"
+  value = "us-east-2"
+}
+
+resource "aws_ssm_parameter" "bucket" {
+  name  = "/app/bucket"
+  type  = "String"
+  value = aws_s3_bucket.photos_bucket.bucket
+}
+
+resource "aws_ssm_parameter" "tablename" {
+  name  = "/app/tablename"
+  type  = "String"
+  value = aws_dynamodb_table.photo-clients.name
+}
+
+resource "aws_ssm_parameter" "session_tablename" {
+  name  = "/app/session_tablename"
+  type  = "String"
+  value = aws_dynamodb_table.user_sessions.name
+}
+
+resource "aws_ssm_parameter" "log_tablename" {
+  name  = "/app/log_tablename"
+  type  = "String"
+  value = aws_dynamodb_table.request_logs.name
 }

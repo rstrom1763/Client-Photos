@@ -29,6 +29,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/things-go/gin-contrib/nocache"
@@ -649,7 +650,80 @@ func deletePlaceHolder(svc *dynamodb.DynamoDB, username string, tableName string
 	return nil
 }
 
+// GetConfigFromSSM fetches application configuration from AWS Parameter Store
+func GetConfigFromSSM(region string) (map[string]string, error) {
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String(region),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create session: %v", err)
+	}
+
+	ssmSvc := ssm.New(sess)
+	names := []*string{
+		aws.String("/app/region"),
+		aws.String("/app/bucket"),
+		aws.String("/app/tablename"),
+		aws.String("/app/session_tablename"),
+		aws.String("/app/log_tablename"),
+	}
+
+	input := &ssm.GetParametersInput{
+		Names:          names,
+		WithDecryption: aws.Bool(true),
+	}
+
+	result, err := ssmSvc.GetParameters(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch parameters: %v", err)
+	}
+
+	config := make(map[string]string)
+	for _, p := range result.Parameters {
+		switch *p.Name {
+		case "/app/region":
+			config["REGION"] = *p.Value
+		case "/app/bucket":
+			config["BUCKET"] = *p.Value
+		case "/app/tablename":
+			config["TABLENAME"] = *p.Value
+		case "/app/session_tablename":
+			config["SESSION_TABLENAME"] = *p.Value
+		case "/app/log_tablename":
+			config["LOG_TABLENAME"] = *p.Value
+		}
+	}
+
+	// Check if all required parameters were found
+	required := []string{"REGION", "BUCKET", "TABLENAME", "SESSION_TABLENAME", "LOG_TABLENAME"}
+	for _, key := range required {
+		if _, ok := config[key]; !ok {
+			return nil, fmt.Errorf("required parameter %s not found in SSM", key)
+		}
+	}
+
+	return config, nil
+}
+
 func main() {
+	// First load .env to get at least the bootstrap region if available
+	// though the request says to pull everything from parameter store.
+	godotenv.Load("../.env")
+	bootstrapRegion := os.Getenv("REGION")
+	if bootstrapRegion == "" {
+		log.Fatal("REGION environment variable not set")
+	}
+
+	ssmConfig, err := GetConfigFromSSM(bootstrapRegion)
+	if err != nil {
+		log.Printf("Warning: Could not fetch config from SSM: %v. Falling back to .env/system env", err)
+	} else {
+		// Override/Set environment variables from SSM
+		for k, v := range ssmConfig {
+			os.Setenv(k, v)
+		}
+	}
+
 	port := env("PORT")           // Port to listen on
 	region := env("REGION")       // AWS region to be used
 	bucket := env("BUCKET")       // S3 bucket to be referenced
@@ -683,8 +757,6 @@ func main() {
 	}
 	client := s3.New(s3sess)
 
-	// If the Scylla url is not used, use AWS
-	// Otherwise connect to Scylla
 	var svc *dynamodb.DynamoDB
 	if scyllaUrl == "" {
 
