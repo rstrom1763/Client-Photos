@@ -1372,6 +1372,41 @@ func main() {
 		})
 	})
 
+	// User sign out. Clears the auth token cookie and redirects to login
+	r.GET("/signout", func(c *gin.Context) {
+
+		// Attempt to delete the session from the database
+		cookie, err := c.Cookie("authToken")
+		if err == nil {
+			var cookieValue map[string]string
+			err = json.Unmarshal([]byte(cookie), &cookieValue)
+			if err == nil {
+				username := cookieValue["username"]
+				token := cookieValue["token"]
+
+				if username != "" && token != "" {
+					_, err := svc.DeleteItem(&dynamodb.DeleteItemInput{
+						TableName: aws.String(sessionTableName),
+						Key: map[string]*dynamodb.AttributeValue{
+							"username": {
+								S: aws.String(username),
+							},
+							"token": {
+								S: aws.String(token),
+							},
+						},
+					})
+					if err != nil {
+						log.Printf("failed to delete session from DynamoDB: %v", err)
+					}
+				}
+			}
+		}
+
+		c.SetCookie("authToken", "", -1, "/", c.Request.Host, true, true)
+		c.Redirect(http.StatusFound, "/login")
+	})
+
 	// User sign in. Sends an auth token cookie to the front end
 	// Also sends a json with the auth token
 	r.POST("/signin", func(c *gin.Context) {

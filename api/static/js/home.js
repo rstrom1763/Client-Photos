@@ -16,6 +16,10 @@ function goToShoot(passedDiv){
 
 }
 
+function signOut() {
+    window.location.href = "/signout"
+}
+
 window.addEventListener("load", function () {
 
     // Hide the loading screen once all images are loaded
