@@ -1430,7 +1430,7 @@ func main() {
 		user, err := getUser(tableName, providedCredentials["username"], svc)
 		if err != nil {
 			log.Printf("There was a problem fetching a user from the DB: %v", err)
-			abortWithError(http.StatusNotFound, err, c)
+			abortWithError(http.StatusUnauthorized, err, c)
 			return
 		}
 
