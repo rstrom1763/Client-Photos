@@ -14,7 +14,7 @@
 
 .loader {
     border: 6px solid #333;
-    border-top: 6px solid #3498db;
+    border-top: 6px solid #58a6ff;
     border-radius: 50%;
     width: 50px;
     height: 50px;
@@ -54,7 +54,7 @@
 
 .navbar a:hover {
     background: #333;
-    color: #3498db;
+    color: #58a6ff;
     cursor: pointer
 }
 
@@ -125,6 +125,6 @@ img {
 }
 .navbar p:hover {
     background: #333;
-    color: #3498db;
+    color: #58a6ff;
     cursor: pointer
 }
