@@ -120,12 +120,7 @@ resource "aws_dynamodb_table" "photo-clients" {
   }
 
   replica {
-    region_name = "eu-west-3"
-    consistency_mode = "EVENTUAL"
-  }
-
-  replica {
-    region_name      = "us-west-2"
+    region_name = "eu-central-1"
     consistency_mode = "EVENTUAL"
   }
 
